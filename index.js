@@ -230,3 +230,20 @@ s reset all
 });
 
 client.login(process.env.TOKEN);
+// LEVEL COMMAND
+if (cmd === "lvl") {
+    const required = levelRequirement(user.level);
+    const current = user.chats % required;
+
+    const embed = new EmbedBuilder()
+        .setTitle(`${message.author.username}'s Level`)
+        .setColor("Purple")
+        .addFields(
+            { name: "💎 Level", value: `${user.level}`, inline: true },
+            { name: "💬 Total Chats", value: `${user.chats}`, inline: true },
+            { name: "📈 Progress", value: `${current} / ${required}` },
+            { name: "📊 Bar", value: progressBar(current, required) }
+        );
+
+    return message.reply({ embeds: [embed] });
+}
