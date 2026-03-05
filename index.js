@@ -48,7 +48,7 @@ client.on("messageCreate", async (message) => {
 
   const user = getUser(message.author.id);
 
-  // XP SYSTEM
+  // ================= XP SYSTEM =================
   user.chats++;
   const requiredXP = levelRequirement(user.level);
 
@@ -158,16 +158,16 @@ client.on("messageCreate", async (message) => {
             { name: "🏅 Rank", value: `${user.level}`, inline: true },
             { name: "💰 Wallet", value: `${user.wallet}`, inline: true },
             { name: "🏦 Bank", value: `${user.bank}`, inline: true },
-            { name: "📊 XP Progress", value: `${percent}%`, inline: false }
+            { name: "📊 XP Progress", value: `${percent}%` }
           )
       ]
     });
   }
 
-  // ================= COIN FLIP =================
+  // ================= COINFLIP =================
   if (cmd === "cf") {
-    let amount = args[0] === "all"
-      ? Math.min(user.wallet, 500000)
+    const amount = args[0] === "all"
+      ? user.wallet
       : parseInt(args[0]);
 
     if (!amount || amount <= 0) return message.reply("Enter valid amount.");
@@ -175,7 +175,7 @@ client.on("messageCreate", async (message) => {
 
     const msg = await message.reply("🪙 Flipping the coin...");
     setTimeout(() => {
-      const win = Math.random() < 0.3;
+      const win = Math.random() < 0.5;
 
       if (win) {
         user.wallet += amount;
@@ -202,15 +202,14 @@ client.on("messageCreate", async (message) => {
     ];
 
     let result = "";
-    let reward = 0;
 
     if (roll.every(s => s === "💎")) {
-      reward = amount * 3;
+      const reward = amount * 3;
       user.wallet += reward;
       result = `💎 JACKPOT! +${reward}`;
     }
     else if (roll.every(s => s === "🍒")) {
-      reward = amount * 2;
+      const reward = amount * 2;
       user.wallet += reward;
       result = `🍒 DOUBLE WIN! +${reward}`;
     }
@@ -237,7 +236,7 @@ client.on("messageCreate", async (message) => {
   // ================= DEPOSIT =================
   if (cmd === "deposit") {
     const amount = parseInt(args[0]);
-    if (!amount || amount <= 0) return;
+    if (!amount || amount <= 0) return message.reply("Enter valid amount.");
     if (amount > user.wallet) return message.reply("Not enough wallet.");
 
     user.wallet -= amount;
@@ -249,7 +248,7 @@ client.on("messageCreate", async (message) => {
   // ================= WITHDRAW =================
   if (cmd === "withdraw") {
     const amount = parseInt(args[0]);
-    if (!amount || amount <= 0) return;
+    if (!amount || amount <= 0) return message.reply("Enter valid amount.");
     if (amount > user.bank) return message.reply("Not enough bank.");
 
     user.bank -= amount;
@@ -262,8 +261,12 @@ client.on("messageCreate", async (message) => {
   if (cmd === "give") {
     const target = message.mentions.users.first();
     const amount = parseInt(args[1]);
-    if (!target || !amount) return;
-    if (amount > user.wallet) return message.reply("Not enough balance.");
+
+    if (!target || !amount || amount <= 0)
+      return message.reply("Usage: s give @user amount");
+
+    if (amount > user.wallet)
+      return message.reply("Not enough balance.");
 
     const tUser = getUser(target.id);
     user.wallet -= amount;
@@ -289,44 +292,40 @@ client.on("messageCreate", async (message) => {
         new EmbedBuilder()
           .setColor("Gold")
           .setTitle("🏆 Leaderboard")
-          .setDescription(desc)
+          .setDescription(desc || "No data yet.")
       ]
     });
   }
-});
 
-client.login(process.env.TOKEN);
-// ================= ADMIN: SETMONEY =================
+  // ================= ADMIN =================
   if (cmd === "setmoney") {
     if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator))
-      return message.reply("❌ You are not allowed to use this.");
+      return message.reply("❌ Not allowed.");
 
     const target = message.mentions.users.first();
     const amount = parseInt(args[1]);
 
-    if (!target || isNaN(amount)) 
+    if (!target || isNaN(amount))
       return message.reply("Usage: s setmoney @user amount");
 
-    const tUser = getUser(target.id);
-    tUser.wallet = amount;
+    getUser(target.id).wallet = amount;
     saveDB();
 
-    return message.reply(`💰 ${target.username}'s wallet set to ${amount}`);
+    return message.reply("Money updated.");
   }
 
-  // ================= ADMIN: RESET =================
   if (cmd === "reset") {
     if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator))
-      return message.reply("❌ You are not allowed to use this.");
+      return message.reply("❌ Not allowed.");
 
     if (args[0] === "all") {
       db = {};
       saveDB();
-      return message.reply("⚠ All database data has been reset.");
+      return message.reply("All data reset.");
     }
 
     const target = message.mentions.users.first();
-    if (!target) return message.reply("Mention a user to reset.");
+    if (!target) return message.reply("Mention a user.");
 
     db[target.id] = {
       wallet: 0,
@@ -337,5 +336,9 @@ client.login(process.env.TOKEN);
     };
 
     saveDB();
-    return message.reply(`🔄 ${target.username}'s data has been reset.`);
+    return message.reply("User reset.");
   }
+
+});
+
+client.login(process.env.TOKEN);
