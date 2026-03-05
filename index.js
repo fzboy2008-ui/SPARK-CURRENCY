@@ -11,6 +11,7 @@ const client = new Client({
 });
 
 const prefix = "s";
+const MAX_BET = 500000;
 const DB_FILE = "./database.json";
 
 let db = {};
@@ -24,13 +25,7 @@ function saveDB() {
 
 function getUser(id) {
   if (!db[id]) {
-    db[id] = {
-      wallet: 0,
-      bank: 0,
-      chats: 0,
-      level: 0,
-      lastDaily: 0
-    };
+    db[id] = { wallet: 0, bank: 0, chats: 0, level: 0, lastDaily: 0 };
   }
   return db[id];
 }
@@ -41,6 +36,21 @@ function levelRequirement(level) {
 
 function levelReward(level) {
   return 5000 * (level + 1);
+}
+
+function getBetAmount(input, wallet) {
+  if (!input) return null;
+
+  let amount = input.toLowerCase() === "all"
+    ? wallet
+    : parseInt(input);
+
+  if (isNaN(amount) || amount <= 0) return null;
+
+  amount = Math.min(amount, wallet);
+  amount = Math.min(amount, MAX_BET);
+
+  return amount;
 }
 
 client.on("messageCreate", async (message) => {
@@ -166,11 +176,11 @@ client.on("messageCreate", async (message) => {
 
   // ===== COIN FLIP =====
   if (cmd === "cf") {
-    const amount = args[0] === "all" ? user.wallet : parseInt(args[0]);
-    if (!amount || amount <= 0) return message.reply("Enter valid amount.");
-    if (amount > user.wallet) return message.reply("Not enough balance.");
+    const amount = getBetAmount(args[0], user.wallet);
+    if (!amount) return message.reply("Enter valid amount.");
 
-    const msg = await message.reply("🪙 Flipping the coin...");
+    const msg = await message.reply(`🪙 Flipping ${amount} coins...`);
+
     setTimeout(() => {
       const win = Math.random() < 0.5;
 
@@ -181,15 +191,15 @@ client.on("messageCreate", async (message) => {
         user.wallet -= amount;
         msg.edit(`💀 YOU LOST! -${amount} coins`);
       }
+
       saveDB();
     }, 1500);
   }
 
   // ===== ANIMATED SLOT =====
   if (cmd === "slot") {
-    const amount = parseInt(args[0]);
-    if (!amount || amount <= 0) return message.reply("Enter valid amount.");
-    if (amount > user.wallet) return message.reply("Not enough balance.");
+    const amount = getBetAmount(args[0], user.wallet);
+    if (!amount) return message.reply("Enter valid amount.");
 
     const symbols = ["💎", "🍒", "🍉", "🍋", "⭐"];
     const msg = await message.reply("🎰 Spinning...\n| ❔ | ❔ | ❔ |");
@@ -232,10 +242,8 @@ client.on("messageCreate", async (message) => {
         }
 
         saveDB();
-
         await msg.edit(`🎰 FINAL RESULT\n| ${finalRoll.join(" | ")} |\n\n${result}`);
       }
-
     }, 700);
   }
 
@@ -326,14 +334,7 @@ client.on("messageCreate", async (message) => {
     const target = message.mentions.users.first();
     if (!target) return message.reply("Mention a user.");
 
-    db[target.id] = {
-      wallet: 0,
-      bank: 0,
-      chats: 0,
-      level: 0,
-      lastDaily: 0
-    };
-
+    db[target.id] = { wallet: 0, bank: 0, chats: 0, level: 0, lastDaily: 0 };
     saveDB();
     return message.reply("User reset.");
   }
