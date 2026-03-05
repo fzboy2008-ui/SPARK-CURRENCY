@@ -43,26 +43,22 @@ function levelReward(level) {
   return 5000 * (level + 1);
 }
 
-function progressBar(current, required) {
-  const percent = current / required;
-  const filled = Math.floor(percent * 12);
-  return "🟪".repeat(filled) + "⬛".repeat(12 - filled);
-}
-
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
 
   const user = getUser(message.author.id);
 
-  // LEVEL SYSTEM
+  // XP SYSTEM
   user.chats++;
-  const required = levelRequirement(user.level);
-  if (user.chats >= required) {
+  const requiredXP = levelRequirement(user.level);
+
+  if (user.chats >= requiredXP) {
     user.level++;
     const reward = levelReward(user.level - 1);
     user.wallet += reward;
-    message.channel.send(`🎉 ${message.author} leveled up to **${user.level}** and earned 💰 ${reward} coins!`);
+    message.channel.send(`🎉 ${message.author} ranked up to **${user.level}** and earned 💰 ${reward} coins!`);
   }
+
   saveDB();
 
   if (!message.content.startsWith(prefix)) return;
@@ -70,99 +66,117 @@ client.on("messageCreate", async (message) => {
   const args = message.content.slice(prefix.length).trim().split(/ +/);
   const cmd = args.shift()?.toLowerCase();
 
-  // HELP
+  // ================= HELP =================
   if (cmd === "help") {
     return message.reply({
       embeds: [
         new EmbedBuilder()
           .setColor("Purple")
-          .setTitle("📜 Commands")
+          .setTitle("✨ Available Commands")
           .setDescription(`
 🎁 s daily
 💰 s cash
 👤 s profile
 📊 s lvl
-🎲 s cf <amount|all>
-🏦 s deposit <amount>
-🏧 s withdraw <amount>
-💸 s give @user <amount>
+🎲 s cf
+🎰 s slot
+🏦 s deposit
+🏧 s withdraw
+💸 s give
 🏆 s leaderboard
-
-👑 ADMIN:
-s setmoney @user <amount>
-s reset @user
-s reset all
 `)
       ]
     });
   }
 
-  // DAILY
+  // ================= DAILY =================
   if (cmd === "daily") {
-    if (Date.now() - user.lastDaily < 86400000)
-      return message.reply("❌ Already claimed daily.");
+    const cooldown = 86400000;
+    const remaining = cooldown - (Date.now() - user.lastDaily);
+
+    if (remaining > 0) {
+      const hours = Math.floor(remaining / 3600000);
+      const minutes = Math.floor((remaining % 3600000) / 60000);
+      return message.reply(`⏳ Next daily in ${hours}h ${minutes}m`);
+    }
+
     user.wallet += 500;
     user.lastDaily = Date.now();
     saveDB();
-    return message.reply("🎁 You received 💰 500 coins!");
+    return message.reply("🎁 Daily Reward Claimed! +500 coins 💰");
   }
 
-  // CASH
+  // ================= CASH =================
   if (cmd === "cash") {
-    return message.reply(`💵 Wallet: ${user.wallet}\n🏦 Bank: ${user.bank}`);
-  }
-
-  // LVL
-  if (cmd === "lvl") {
-    const required = levelRequirement(user.level);
-    const current = user.chats % required;
     return message.reply({
       embeds: [
         new EmbedBuilder()
-          .setColor("Purple")
-          .setTitle(`${message.author.username}'s Level`)
+          .setColor("Green")
+          .setTitle("💳 Balance Overview")
+          .setDescription(`👤 User: ${message.author.username}`)
           .addFields(
-            { name: "💎 Level", value: `${user.level}`, inline: true },
-            { name: "💬 Chats", value: `${user.chats}`, inline: true },
-            { name: "📈 Progress", value: `${current}/${required}` },
-            { name: "📊 Bar", value: progressBar(current, required) }
+            { name: "💵 Wallet", value: `${user.wallet}`, inline: true },
+            { name: "🏦 Bank", value: `${user.bank}`, inline: true }
           )
       ]
     });
   }
 
-  // PROFILE
+  // ================= LVL =================
+  if (cmd === "lvl") {
+    const required = levelRequirement(user.level);
+    const current = user.chats % required;
+    const percent = ((current / required) * 100).toFixed(1);
+
+    return message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor("Purple")
+          .setTitle(`📊 ${message.author.username}'s Rank`)
+          .addFields(
+            { name: "🏅 Rank", value: `${user.level}`, inline: true },
+            { name: "⚡ XP", value: `${current}/${required}`, inline: true },
+            { name: "📈 Progress", value: `${percent}%` }
+          )
+      ]
+    });
+  }
+
+  // ================= PROFILE =================
   if (cmd === "profile") {
     const required = levelRequirement(user.level);
     const current = user.chats % required;
+    const percent = ((current / required) * 100).toFixed(1);
+
     return message.reply({
       embeds: [
         new EmbedBuilder()
           .setColor("Blue")
           .setThumbnail(message.author.displayAvatarURL())
-          .setTitle(`${message.author.username}'s Profile`)
+          .setTitle(`👤 ${message.author.username}'s Profile`)
           .addFields(
-            { name: "💎 Level", value: `${user.level}`, inline: true },
+            { name: "🏅 Rank", value: `${user.level}`, inline: true },
             { name: "💰 Wallet", value: `${user.wallet}`, inline: true },
             { name: "🏦 Bank", value: `${user.bank}`, inline: true },
-            { name: "📊 Progress", value: progressBar(current, required) }
+            { name: "📊 XP Progress", value: `${percent}%`, inline: false }
           )
       ]
     });
   }
 
-  // COINFLIP
+  // ================= COIN FLIP =================
   if (cmd === "cf") {
     let amount = args[0] === "all"
       ? Math.min(user.wallet, 500000)
       : parseInt(args[0]);
 
-    if (!amount || amount <= 0) return message.reply("Invalid amount.");
+    if (!amount || amount <= 0) return message.reply("Enter valid amount.");
     if (amount > user.wallet) return message.reply("Not enough balance.");
 
     const msg = await message.reply("🪙 Flipping the coin...");
     setTimeout(() => {
       const win = Math.random() < 0.3;
+
       if (win) {
         user.wallet += amount;
         msg.edit(`🎉 YOU WON! +${amount} coins`);
@@ -174,42 +188,92 @@ s reset all
     }, 1500);
   }
 
-  // DEPOSIT
+  // ================= SLOT =================
+  if (cmd === "slot") {
+    const amount = parseInt(args[0]);
+    if (!amount || amount <= 0) return message.reply("Enter valid amount.");
+    if (amount > user.wallet) return message.reply("Not enough balance.");
+
+    const symbols = ["💎", "🍒", "🍉", "🍋"];
+    const roll = [
+      symbols[Math.floor(Math.random() * symbols.length)],
+      symbols[Math.floor(Math.random() * symbols.length)],
+      symbols[Math.floor(Math.random() * symbols.length)]
+    ];
+
+    let result = "";
+    let reward = 0;
+
+    if (roll.every(s => s === "💎")) {
+      reward = amount * 3;
+      user.wallet += reward;
+      result = `💎 JACKPOT! +${reward}`;
+    }
+    else if (roll.every(s => s === "🍒")) {
+      reward = amount * 2;
+      user.wallet += reward;
+      result = `🍒 DOUBLE WIN! +${reward}`;
+    }
+    else if (roll.every(s => s === "🍉")) {
+      result = `🍉 TIE! No Win No Loss`;
+    }
+    else {
+      user.wallet -= amount;
+      result = `❌ You Lost -${amount}`;
+    }
+
+    saveDB();
+
+    return message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor("Orange")
+          .setTitle("🎰 Slot Machine")
+          .setDescription(`| ${roll.join(" | ")} |\n\n${result}`)
+      ]
+    });
+  }
+
+  // ================= DEPOSIT =================
   if (cmd === "deposit") {
     const amount = parseInt(args[0]);
     if (!amount || amount <= 0) return;
     if (amount > user.wallet) return message.reply("Not enough wallet.");
+
     user.wallet -= amount;
     user.bank += amount;
     saveDB();
     return message.reply(`🏦 Deposited ${amount}`);
   }
 
-  // WITHDRAW
+  // ================= WITHDRAW =================
   if (cmd === "withdraw") {
     const amount = parseInt(args[0]);
     if (!amount || amount <= 0) return;
     if (amount > user.bank) return message.reply("Not enough bank.");
+
     user.bank -= amount;
     user.wallet += amount;
     saveDB();
     return message.reply(`🏧 Withdrawn ${amount}`);
   }
 
-  // GIVE
+  // ================= GIVE =================
   if (cmd === "give") {
     const target = message.mentions.users.first();
     const amount = parseInt(args[1]);
     if (!target || !amount) return;
     if (amount > user.wallet) return message.reply("Not enough balance.");
+
     const tUser = getUser(target.id);
     user.wallet -= amount;
     tUser.wallet += amount;
     saveDB();
+
     return message.reply(`💸 Sent ${amount} coins to ${target.username}`);
   }
 
-  // LEADERBOARD
+  // ================= LEADERBOARD =================
   if (cmd === "leaderboard" || cmd === "lb") {
     const top = Object.entries(db)
       .sort((a, b) => (b[1].wallet + b[1].bank) - (a[1].wallet + a[1].bank))
@@ -228,31 +292,6 @@ s reset all
           .setDescription(desc)
       ]
     });
-  }
-
-  // ADMIN
-  if (cmd === "setmoney") {
-    if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;
-    const target = message.mentions.users.first();
-    const amount = parseInt(args[1]);
-    if (!target || !amount) return;
-    getUser(target.id).wallet = amount;
-    saveDB();
-    return message.reply("Money set.");
-  }
-
-  if (cmd === "reset") {
-    if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;
-    if (args[0] === "all") {
-      db = {};
-      saveDB();
-      return message.reply("All data reset.");
-    }
-    const target = message.mentions.users.first();
-    if (!target) return;
-    db[target.id] = { wallet: 0, bank: 0, chats: 0, level: 0, lastDaily: 0 };
-    saveDB();
-    return message.reply("User reset.");
   }
 });
 
