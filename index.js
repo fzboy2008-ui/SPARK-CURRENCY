@@ -296,3 +296,46 @@ client.on("messageCreate", async (message) => {
 });
 
 client.login(process.env.TOKEN);
+// ================= ADMIN: SETMONEY =================
+  if (cmd === "setmoney") {
+    if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator))
+      return message.reply("❌ You are not allowed to use this.");
+
+    const target = message.mentions.users.first();
+    const amount = parseInt(args[1]);
+
+    if (!target || isNaN(amount)) 
+      return message.reply("Usage: s setmoney @user amount");
+
+    const tUser = getUser(target.id);
+    tUser.wallet = amount;
+    saveDB();
+
+    return message.reply(`💰 ${target.username}'s wallet set to ${amount}`);
+  }
+
+  // ================= ADMIN: RESET =================
+  if (cmd === "reset") {
+    if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator))
+      return message.reply("❌ You are not allowed to use this.");
+
+    if (args[0] === "all") {
+      db = {};
+      saveDB();
+      return message.reply("⚠ All database data has been reset.");
+    }
+
+    const target = message.mentions.users.first();
+    if (!target) return message.reply("Mention a user to reset.");
+
+    db[target.id] = {
+      wallet: 0,
+      bank: 0,
+      chats: 0,
+      level: 0,
+      lastDaily: 0
+    };
+
+    saveDB();
+    return message.reply(`🔄 ${target.username}'s data has been reset.`);
+  }
