@@ -1,15 +1,12 @@
 {
   "name": "spark-bot",
   "version": "1.0.0",
-  "description": "Spark Discord Economy Bot",
+  "description": "Spark Currency Bot",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
-  "author": "fzboy786_01978",
-  "license": "ISC",
   "dependencies": {
-    "discord.js": "^14.14.1",
-    "fs": "^0.0.1-security"
+    "discord.js": "^14.13.0"
   }
 }
