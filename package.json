@@ -1,14 +1,11 @@
 {
-  "name": "spark-economy-bot",
+  "name": "spark-bot",
   "version": "1.0.0",
-  "description": "Discord Economy + Rank + Slot Bot",
+  "description": "Discord RPG Economy Bot",
   "main": "index.js",
-  "type": "commonjs",
   "scripts": {
     "start": "node index.js"
   },
-  "author": "SPARKLEMC",
-  "license": "ISC",
   "dependencies": {
     "discord.js": "^14.14.1"
   }
