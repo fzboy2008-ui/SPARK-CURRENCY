@@ -1,424 +1,318 @@
-const { Client, GatewayIntentBits, EmbedBuilder, PermissionsBitField } = require("discord.js")
-const fs = require("fs")
+const { Client, GatewayIntentBits, EmbedBuilder } = require("discord.js");
+const fs = require("fs");
 
 const client = new Client({
-intents:[
-GatewayIntentBits.Guilds,
-GatewayIntentBits.GuildMessages,
-GatewayIntentBits.MessageContent,
-GatewayIntentBits.GuildMembers
-]})
+ intents: [
+  GatewayIntentBits.Guilds,
+  GatewayIntentBits.GuildMessages,
+  GatewayIntentBits.MessageContent
+ ]
+});
 
-const prefix = "s"
-const owner = "fzboy786_01978"
+const TOKEN = process.env.TOKEN;
+const PREFIX = "s";
+const OWNER = "fzboy786_01978";
 
-let db={}
-if(fs.existsSync("db.json")){
-db=JSON.parse(fs.readFileSync("db.json"))
+let db = JSON.parse(fs.readFileSync("./database.json"));
+
+function save() {
+ fs.writeFileSync("./database.json", JSON.stringify(db, null, 2));
 }
 
-function save(){fs.writeFileSync("db.json",JSON.stringify(db,null,2))}
-
-function userData(id){
-if(!db[id]){
-db[id]={
-wallet:0,
-bank:0,
-xp:0,
-rank:0,
-gems:0,
-battles:0,
-wins:0,
-dragon:null,
-dragons:[],
-weapons:[],
-armours:[],
-admins:[]
-}}
-return db[id]
+function getUser(id) {
+ if (!db.users[id]) {
+  db.users[id] = {
+   coins: 500,
+   gems: 10,
+   lvl: 1,
+   xp: 0,
+   dragons: [],
+   fights: { win: 0, lose: 0 }
+  };
+ }
+ return db.users[id];
 }
 
-function maxBet(n){
-if(n==="all") return 500000
-if(parseInt(n)>500000) return 500000
-return parseInt(n)
-}
+const dragons = {
+ fire_dragon: { price: 500, emoji: "🔥" },
+ ice_dragon: { price: 700, emoji: "❄️" },
+ "lightning-dragon": { price: 900, emoji: "⚡" },
+ wind_dragon: { price: 600, emoji: "🌪️" }
+};
 
-client.on("messageCreate",async msg=>{
+client.on("messageCreate", async msg => {
 
-if(msg.author.bot) return
-let user=userData(msg.author.id)
+ if (msg.author.bot) return;
+ if (!msg.content.startsWith(PREFIX)) return;
 
-user.xp++
+ if (db.disabledChannels.includes(msg.channel.id)) {
+  if (!msg.member.permissions.has("Administrator")) return;
+ }
 
-let need=(user.rank+1)*250
-if(user.xp>=need){
-user.rank++
-user.wallet+=5000
-msg.channel.send(`🏆 ${msg.author} ranked up to **${user.rank}** and got 💰5000`)
-}
+ const args = msg.content.slice(1).trim().split(/ +/);
+ const cmd = args.shift().toLowerCase();
+ const user = getUser(msg.author.id);
 
-save()
+ // HELP
+ if (cmd === "help") {
+  msg.reply(`
+📜 **COMMANDS**
 
-if(!msg.content.startsWith(prefix)) return
-
-const args=msg.content.slice(prefix.length).trim().split(/ +/)
-const cmd=args.shift()?.toLowerCase()
-
-/* HELP */
-
-if(cmd==="help"){
-return msg.reply(`
-📜 COMMANDS
-
-💰 ECONOMY
-s daily
-s cash
-s give
-s deposit
-s withdraw
-
-🎰 GAMBLING
-s cf
-s slot
-
-📊 PROFILE
+s help
 s profile
 s lvl
-
-🐉 DRAGONS
-s dragon buy
-s dragon set
-s feed
-
-⚔ BATTLE
-s challenge
-s accept
-
-🛒 SHOP
+s bal
+s daily
+s give
+s cf
+s slot
 s shop
-
-🎒 INVENTORY
+s buy fire_dragon
+s buy ice_dragon
+s buy lightning-dragon
+s buy wind_dragon
 s inv
+s challenge @user
+s accept
+s lb coins
+s lb gems
+s lb fights
+`);
+ }
 
-🏆 LEADERBOARD
-s lb
-`)
-}
-
-/* DAILY */
-
-if(cmd==="daily"){
-if(!user.lastDaily) user.lastDaily=0
-let cd=86400000
-let diff=Date.now()-user.lastDaily
-
-if(diff<cd){
-let t=Math.floor((cd-diff)/1000)
-let h=Math.floor(t/3600)
-let m=Math.floor(t%3600/60)
-return msg.reply(`⏳ next reward in ${h}h ${m}m`)
-}
-
-user.wallet+=500
-user.lastDaily=Date.now()
-save()
-return msg.reply("🎁 You received **500** coins")
-}
-
-/* CASH */
-
-if(cmd==="cash"){
-return msg.reply(`
-👤 USER : ${msg.author.username}
-
-💰 WALLET : ${user.wallet}
-🏦 BANK : ${user.bank}
-`)
-}
+ // PROFILE
+ if (cmd === "profile") {
 
-/* DEPOSIT */
+  const embed = new EmbedBuilder()
+   .setTitle(`${msg.author.username} Profile`)
+   .addFields(
+    { name: "Coins", value: `${user.coins}`, inline: true },
+    { name: "Gems", value: `${user.gems}`, inline: true },
+    { name: "Level", value: `${user.lvl}`, inline: true }
+   );
 
-if(cmd==="deposit"){
-let a=parseInt(args[0])
-if(a>user.wallet) return msg.reply("❌ not enough wallet")
-user.wallet-=a
-user.bank+=a
-save()
-msg.reply(`🏦 deposited ${a}`)
-}
+  msg.reply({ embeds: [embed] });
 
-/* WITHDRAW */
+ }
 
-if(cmd==="withdraw"){
-let a=parseInt(args[0])
-if(a>user.bank) return msg.reply("❌ not enough bank")
-user.bank-=a
-user.wallet+=a
-save()
-msg.reply(`💰 withdrew ${a}`)
-}
+ // BAL
+ if (cmd === "bal") {
 
-/* GIVE */
+  msg.reply(`
+💰 Coins: ${user.coins}
+💎 Gems: ${user.gems}
+`);
 
-if(cmd==="give"){
-let t=msg.mentions.users.first()
-let a=parseInt(args[1])
-if(!t) return
-if(a>user.wallet) return msg.reply("❌ not enough coins")
+ }
 
-user.wallet-=a
-userData(t.id).wallet+=a
-save()
+ // DAILY
+ if (cmd === "daily") {
 
-msg.reply(`💸 sent ${a} to ${t.username}`)
-}
+  user.coins += 300;
+  save();
 
-/* LEVEL */
+  msg.reply("🎁 Daily reward: 300 coins");
 
-if(cmd==="lvl"){
-let need=(user.rank+1)*250
-let percent=Math.floor((user.xp/need)*100)
+ }
 
-return msg.reply(`
-🏆 RANK : ${user.rank}
-✨ XP : ${user.xp}/${need}
-📊 ${percent}%
-`)
-}
+ // GIVE
+ if (cmd === "give") {
 
-/* PROFILE */
+  const member = msg.mentions.users.first();
+  const amount = parseInt(args[1]);
 
-if(cmd==="profile"){
-let dragon=user.dragon?user.dragon:"None"
+  if (!member) return;
 
-return msg.reply(`
-👤 ${msg.author.username}
+  const target = getUser(member.id);
 
-🏆 Rank : ${user.rank}
-💰 Wallet : ${user.wallet}
-🏦 Bank : ${user.bank}
+  if (user.coins < amount) return;
 
-🐉 Dragon : ${dragon}
-💎 Gems : ${user.gems}
-`)
-}
+  user.coins -= amount;
+  target.coins += amount;
 
-/* COIN FLIP */
+  save();
 
-if(cmd==="cf"){
-let bet=maxBet(args[0])
-if(bet>user.wallet) return msg.reply("❌ not enough coins")
+  msg.reply(`💸 Sent ${amount} coins`);
 
-let m=await msg.reply("🪙 flipping coin...")
-setTimeout(()=>{
-let win=Math.random()<0.20
+ }
 
-if(win){
-user.wallet+=bet
-m.edit(`🎉 WIN +${bet}`)
-}else{
-user.wallet-=bet
-m.edit(`💀 LOSE -${bet}`)
-}
+ // COINFLIP
+ if (cmd === "cf") {
 
-save()
+  const bet = parseInt(args[0]);
 
-},2000)
-}
+  if (user.coins < bet) return msg.reply("Not enough coins");
 
-/* SLOT */
+  if (Math.random() < 0.5) {
+   user.coins += bet;
+   msg.reply("🪙 You won!");
+  } else {
+   user.coins -= bet;
+   msg.reply("💀 You lost");
+  }
 
-if(cmd==="slot"){
-let bet=maxBet(args[0])
-if(bet>user.wallet) return msg.reply("❌ not enough coins")
+  save();
 
-const items=["🍒","🍉","💎","🍋"]
+ }
 
-let m=await msg.reply("🎰 spinning...")
+ // SLOT
+ if (cmd === "slot") {
 
-setTimeout(()=>{
+  const items = ["🍒","🍉","💎"];
 
-let r1=items[Math.floor(Math.random()*4)]
-let r2=items[Math.floor(Math.random()*4)]
-let r3=items[Math.floor(Math.random()*4)]
+  const a = items[Math.floor(Math.random()*3)];
+  const b = items[Math.floor(Math.random()*3)];
+  const c = items[Math.floor(Math.random()*3)];
 
-let result=`${r1} | ${r2} | ${r3}`
+  if (a === b && b === c) {
+   user.coins += 500;
+  }
 
-let win=Math.random()<0.5
+  msg.reply(`${a} | ${b} | ${c}`);
 
-if(win){
-user.wallet+=bet
-m.edit(`🎰 ${result}\n🎉 WIN +${bet}`)
-}else{
-user.wallet-=bet
-m.edit(`🎰 ${result}\n💀 LOSE -${bet}`)
-}
+  save();
 
-save()
+ }
 
-},2000)
-}
+ // SHOP
+ if (cmd === "shop") {
 
-/* SHOP */
+  msg.reply(`
+🐉 **DRAGON SHOP**
 
-if(cmd==="shop"){
-msg.reply(`
-🛒 SHOP
+s buy fire_dragon - 500
+s buy ice_dragon - 700
+s buy lightning-dragon - 900
+s buy wind_dragon - 600
+`);
 
-🐉 DRAGON : 4m - 6m
-🗡 WEAPON : 1m
-🛡 ARMOUR : 500k
+ }
 
-use:
-s dragon buy
-`)
-}
+ // BUY
+ if (cmd === "buy") {
 
-/* DRAGON BUY */
+  const name = args[0];
 
-if(cmd==="dragon" && args[0]==="buy"){
+  if (!dragons[name]) return;
 
-let price=4000000
+  const d = dragons[name];
 
-if(user.wallet<price) return msg.reply("❌ need 4m")
+  if (user.coins < d.price) return msg.reply("Not enough coins");
 
-user.wallet-=price
-user.dragons.push({name:"Fire Dragon",lvl:1})
+  user.coins -= d.price;
 
-save()
+  user.dragons.push({
+   name: name,
+   lvl: 1
+  });
 
-msg.reply("🐉 Fire Dragon purchased")
-}
+  save();
 
-/* DRAGON SET */
+  msg.reply(`🐉 Bought ${name}`);
 
-if(cmd==="dragon" && args[0]==="set"){
-if(!user.dragons.length) return msg.reply("❌ no dragon")
+ }
 
-user.dragon=user.dragons[0].name
-save()
+ // INVENTORY
+ if (cmd === "inv") {
 
-msg.reply(`🐉 selected ${user.dragon}`)
-}
+  let list = user.dragons.map(d => `${d.name} LVL ${d.lvl}`).join("\n");
 
-/* FEED */
+  msg.reply(`
+📦 INVENTORY
 
-if(cmd==="feed"){
-if(user.gems<100) return msg.reply("❌ need 100 gems")
+DRAGONS
+${list || "None"}
 
-let d=user.dragons[0]
-d.lvl++
+WEAPONS
+None
 
-user.gems-=100
+ARMOUR
+None
 
-save()
+GEMS
+${user.gems}
+`);
 
-msg.reply(`🐉 dragon level ${d.lvl}`)
-}
+ }
 
-/* BATTLE */
+ // LEADERBOARD
+ if (cmd === "lb") {
 
-let battles={}
+  const type = args[0];
 
-if(cmd==="challenge"){
-let t=msg.mentions.users.first()
-if(!t) return
+  let arr = Object.entries(db.users);
 
-battles[t.id]=msg.author.id
+  if (type === "coins") {
+   arr.sort((a,b)=>b[1].coins-a[1].coins);
+  }
 
-msg.reply(`⚔ ${t} type **s accept**`)
-}
+  if (type === "gems") {
+   arr.sort((a,b)=>b[1].gems-a[1].gems);
+  }
 
-if(cmd==="accept"){
-if(!battles[msg.author.id]) return
+  msg.reply("🏆 Leaderboard loaded");
 
-let enemy=battles[msg.author.id]
+ }
 
-delete battles[msg.author.id]
+ // DISABLE
+ if (cmd === "disable") {
 
-let win=Math.random()<0.5
+  if (!msg.member.permissions.has("Administrator")) return;
 
-if(win){
-userData(enemy).wins++
-userData(enemy).battles++
-userData(enemy).gems+=5
-msg.channel.send(`🏆 <@${enemy}> wins and got 💎5`)
-}else{
-user.wins++
-user.battles++
-user.gems+=5
-msg.channel.send(`🏆 ${msg.author} wins and got 💎5`)
-}
+  db.disabledChannels.push(msg.channel.id);
+  save();
 
-save()
-}
+  msg.reply("❌ Bot disabled in this channel");
 
-/* LEADERBOARD */
+ }
 
-if(cmd==="lb"){
+ // ENABLE
+ if (cmd === "enable") {
 
-let top=Object.entries(db)
-.sort((a,b)=> (b[1].wallet+b[1].bank)-(a[1].wallet+a[1].bank))
-.slice(0,10)
+  if (!msg.member.permissions.has("Administrator")) return;
 
-let text=""
+  db.disabledChannels = db.disabledChannels.filter(id=>id!==msg.channel.id);
+  save();
 
-top.forEach((u,i)=>{
-text+=`${i+1}. <@${u[0]}> — ${u[1].wallet+u[1].bank}\n`
-})
+  msg.reply("✅ Bot enabled");
 
-msg.reply(`🏆 LEADERBOARD\n\n${text}`)
-}
+ }
 
-/* OWNER COMMANDS */
+ // OWNER CMDS
+ if (msg.author.username === OWNER) {
 
-if(msg.author.username===owner){
+  if (cmd === "setmoney") {
 
-if(cmd==="admin"){
-if(args[0]==="add"){
-let u=msg.mentions.users.first()
-db.admins=db.admins||[]
-db.admins.push(u.id)
-save()
-msg.reply("admin added")
-}
+   const member = msg.mentions.users.first();
+   const amount = parseInt(args[1]);
 
-if(args[0]==="list"){
-msg.reply(`admins: ${db.admins}`)
-}
-}
+   const target = getUser(member.id);
 
-if(cmd==="setmoney"){
-let u=msg.mentions.users.first()
-let a=parseInt(args[1])
-userData(u.id).wallet=a
-save()
-msg.reply("money set")
-}
+   target.coins = amount;
 
-if(cmd==="reset"){
-if(args[0]==="all"){
-db={}
-save()
-msg.reply("database reset")
-}
-}
+   save();
 
-}
+   msg.reply("Money set");
 
-/* CHANNEL ENABLE */
+  }
 
-if(cmd==="enable"){
-if(!msg.member.permissions.has(PermissionsBitField.Flags.Administrator))return
-msg.channel.send("✅ bot enabled here")
-}
+  if (cmd === "setgems") {
 
-if(cmd==="disable"){
-if(!msg.member.permissions.has(PermissionsBitField.Flags.Administrator))return
-msg.channel.send("❌ bot disabled here")
-}
+   const member = msg.mentions.users.first();
+   const amount = parseInt(args[1]);
 
-})
+   const target = getUser(member.id);
 
-client.login(process.env.TOKEN)
+   target.gems = amount;
+
+   save();
+
+   msg.reply("Gems set");
+
+  }
+
+ }
+
+});
+
+client.login(TOKEN);
