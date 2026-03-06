@@ -735,6 +735,7 @@ process.on("SIGTERM", () => {
   save();
   process.exit();
 });
+
 // ---------- SERVER ADMIN CMDS ----------
 if ((cmd === "disable" || cmd === "enable") && msg.member.permissions.has("ADMINISTRATOR")) {
     const channel = msg.mentions.channels.first();
