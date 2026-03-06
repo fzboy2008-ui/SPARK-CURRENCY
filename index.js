@@ -736,7 +736,8 @@ process.on("SIGTERM", () => {
   process.exit();
 });
 
-// ---------- SERVER ADMIN CMDS ----------
+/* ================= SERVER ADMIN CMDS ================= */
+
 if ((cmd === "disable" || cmd === "enable") && msg.member.permissions.has("ADMINISTRATOR")) {
     const channel = msg.mentions.channels.first();
     if (!channel) return msg.reply("Mention a channel to enable/disable the bot.");
