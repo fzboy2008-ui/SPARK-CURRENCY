@@ -1,401 +1,350 @@
-const { Client, GatewayIntentBits, EmbedBuilder } = require("discord.js");
-const fs = require("fs");
+const { Client, GatewayIntentBits } = require('discord.js');
+const fs = require('fs');
 
 const client = new Client({
-intents:[
-GatewayIntentBits.Guilds,
-GatewayIntentBits.GuildMessages,
-GatewayIntentBits.MessageContent
-]
+ intents: [
+  GatewayIntentBits.Guilds,
+  GatewayIntentBits.GuildMessages,
+  GatewayIntentBits.MessageContent
+ ]
 });
 
-const prefix = "s";
-const botOwner = "fzboy786_01978";
+const prefix = "s ";
 
-let users = {};
-let servers = {};
+if (!fs.existsSync("./database")) fs.mkdirSync("./database");
+if (!fs.existsSync("./database/users.json")) fs.writeFileSync("./database/users.json", "{}");
 
-if(fs.existsSync("./database/users.json"))
-users = JSON.parse(fs.readFileSync("./database/users.json"));
+let users = JSON.parse(fs.readFileSync("./database/users.json"));
 
-if(fs.existsSync("./database/servers.json"))
-servers = JSON.parse(fs.readFileSync("./database/servers.json"));
-
-function save(){
-fs.writeFileSync("./database/users.json",JSON.stringify(users,null,2));
-fs.writeFileSync("./database/servers.json",JSON.stringify(servers,null,2));
+function save() {
+ fs.writeFileSync("./database/users.json", JSON.stringify(users,null,2));
 }
 
-function getUser(id){
-if(!users[id]){
-users[id] = {
-wallet:500,
-bank:0,
-gems:0,
-xp:0,
-level:0,
-wins:0,
-loses:0,
-dragons:[],
-weapons:[],
-armours:[],
-selectedDragon:null,
-dragonLevel:1,
-lastDaily:0
-}
-}
-return users[id]
+function getUser(id) {
+ if (!users[id]) {
+  users[id] = {
+   coins: 10000,
+   wins: 0,
+   loses: 0
+  };
+ }
+ return users[id];
 }
 
-client.on("ready",()=>{
-console.log(`Bot Ready ${client.user.tag}`)
-})
+client.once("ready", () => {
+ console.log("Spark Bot Online");
+});
 
-client.on("messageCreate", async message=>{
+client.on("messageCreate", async (msg) => {
 
-if(message.author.bot) return
+ if (msg.author.bot) return;
+ if (!msg.content.startsWith(prefix)) return;
 
-const user = getUser(message.author.id)
+ const args = msg.content.slice(prefix.length).trim().split(/ +/);
+ const cmd = args.shift().toLowerCase();
 
-user.xp += 1
+ const user = getUser(msg.author.id);
 
-let need = (user.level+1)*2500
 
-if(user.xp >= need){
-user.level++
-let reward = user.level*5000
-user.wallet += reward
-message.channel.send(`🏅 ${message.author} leveled up to ${user.level} (+${reward})`)
-}
 
-save()
 
-if(!message.content.startsWith(prefix)) return
 
-const args = message.content.slice(prefix.length).trim().split(/ +/)
-const cmd = args.shift().toLowerCase()
+/* HELP COMMAND */
 
-////////////////////////////////////////////////////
-//// BAL
-////////////////////////////////////////////////////
+if (cmd === "help") {
 
-if(cmd === "bal"){
+msg.reply(`
+⚡ **SPARK BOT COMMANDS**
 
-const embed = new EmbedBuilder()
-.setTitle(`${message.author.username} Balance`)
-.addFields(
-{name:"👛 Wallet",value:user.wallet.toString(),inline:true},
-{name:"🏦 Bank",value:user.bank.toString(),inline:true},
-{name:"💎 Gems",value:user.gems.toString(),inline:true}
-)
+💰 Economy
+s bal
+s cf <amount>
+s slot <amount>
 
-message.reply({embeds:[embed]})
-}
+⚔ Battle
+s battle @user <amount>
 
-////////////////////////////////////////////////////
-//// DAILY
-////////////////////////////////////////////////////
-
-if(cmd === "daily"){
-
-let now = Date.now()
-
-if(now-user.lastDaily < 86400000)
-return message.reply("Daily already claimed")
-
-user.wallet += 500
-user.lastDaily = now
-
-message.reply("🎁 +500 coins")
-
-save()
-}
-
-////////////////////////////////////////////////////
-//// GIVE
-////////////////////////////////////////////////////
-
-if(cmd === "give"){
-
-let target = message.mentions.users.first()
-let amount = parseInt(args[1])
-
-if(!target) return
-if(user.wallet < amount) return message.reply("Not enough coins")
-
-let t = getUser(target.id)
-
-user.wallet -= amount
-t.wallet += amount
-
-message.reply(`Transferred ${amount} coins`)
-
-save()
-}
-
-////////////////////////////////////////////////////
-//// COINFLIP
-////////////////////////////////////////////////////
-
-if(cmd === "cf"){
-
-let bet = args[0]
-
-if(bet === "all") bet = user.wallet
-
-bet = parseInt(bet)
-
-if(bet > 200000) bet = 200000
-
-if(user.wallet < bet) return
-
-const msg = await message.reply("🪙 Flipping coin...")
-
-setTimeout(()=>{
-
-let win = Math.random()<0.2
-
-if(win){
-user.wallet += bet
-msg.edit(`🪙 Coinflip Result
-
-🎉 LUCKY WIN
-Won : ${bet}`)
-}else{
-user.wallet -= bet
-msg.edit(`🪙 Coinflip Result
-
-💀 BAD LUCK
-Lost : ${bet}`)
-}
-
-save()
-
-},3000)
+🏆 Leaderboard
+s lb c
+s lb b
+`);
 
 }
 
-////////////////////////////////////////////////////
-//// SLOT
-////////////////////////////////////////////////////
 
-if(cmd === "slot"){
 
-let bet = args[0]
 
-if(bet === "all") bet = user.wallet
 
-bet = parseInt(bet)
+/* BALANCE */
 
-if(bet > 200000) bet = 200000
+if (cmd === "bal") {
 
-if(user.wallet < bet) return
+msg.reply(`
+💰 **${msg.author.username} Balance**
 
-const slots = ["💎","🥭","🍉"]
-
-const spin = await message.reply("🎰 Spinning...")
-
-setTimeout(()=>{
-
-let s1 = slots[Math.floor(Math.random()*3)]
-let s2 = slots[Math.floor(Math.random()*3)]
-let s3 = slots[Math.floor(Math.random()*3)]
-
-let reward = 0
-
-if(s1==="💎" && s2==="💎" && s3==="💎") reward = bet*3
-else if(s1==="🥭" && s2==="🥭" && s3==="🥭") reward = bet*2
-else if(s1==="🍉" && s2==="🍉" && s3==="🍉") reward = bet
-else reward = -bet
-
-user.wallet += reward
-
-spin.edit(`
-___SLOTS___
-
-${s1} ${s2} ${s3}
-
-💸 | ${message.author.username} • bet ${bet}
-
-${reward>=0 ? `🎉 Won ${reward}`:`💀 Lost ${bet}`}
-`)
-
-save()
-
-},3000)
+🪙 Coins: ${user.coins}
+`);
 
 }
 
-////////////////////////////////////////////////////
-//// INVENTORY
-////////////////////////////////////////////////////
 
-if(cmd === "inv"){
 
-message.reply(`
-📦 INVENTORY
 
-🐉 Dragons : ${user.dragons.join(", ") || "None"}
 
-⚔ Weapons : ${user.weapons.join(", ") || "None"}
+/* COINFLIP */
 
-🛡 Armours : ${user.armours.join(", ") || "None"}
-`)
+if (cmd === "cf") {
+
+let bet = parseInt(args[0]);
+
+if (!bet || bet <= 0) return msg.reply("Enter bet amount");
+
+if (bet > user.coins) return msg.reply("Not enough coins");
+
+msg.reply("🪙 Flipping coin...");
+
+setTimeout(() => {
+
+let win = Math.random() < 0.5;
+
+if (win) {
+
+user.coins += bet;
+
+msg.channel.send(`
+🪙 **COINFLIP RESULT**
+
+✨ You Won!
+
++${bet} coins
+`);
+
+} else {
+
+user.coins -= bet;
+
+msg.channel.send(`
+🪙 **COINFLIP RESULT**
+
+💀 You Lost
+
+-${bet} coins
+`);
+
 }
 
-////////////////////////////////////////////////////
-//// SHOP
-////////////////////////////////////////////////////
+save();
 
-if(cmd === "shop"){
+},2000);
 
-message.reply(`
-🏪 SHOP
-
-s shop dragons
-s shop weapons
-s shop armours
-`)
 }
 
-////////////////////////////////////////////////////
-//// DRAGON SHOP
-////////////////////////////////////////////////////
 
-if(cmd === "dragons"){
 
-message.reply(`
-🐉 DRAGONS
 
-🔥 Fire Dragon - 4,000,000
-⚡ Lightning Dragon - 6,000,000
-🌪 Wind Dragon - 7,000,000
-❄ Ice Dragon - 9,000,000
-`)
+
+/* SLOT MACHINE */
+
+if (cmd === "slot") {
+
+let bet = parseInt(args[0]);
+
+if (!bet || bet <= 0) return msg.reply("Enter bet");
+
+if (bet > user.coins) return msg.reply("Not enough coins");
+
+const symbols = ["💎","🥭","🍉"];
+
+msg.reply("🎰 Spinning...");
+
+setTimeout(() => {
+
+let s1 = symbols[Math.floor(Math.random()*3)];
+let s2 = symbols[Math.floor(Math.random()*3)];
+let s3 = symbols[Math.floor(Math.random()*3)];
+
+let result = "";
+let reward = 0;
+
+if (s1==="💎" && s2==="💎" && s3==="💎") {
+
+reward = bet*3;
+user.coins += reward;
+
+result = `
+🎰 SLOT RESULT
+
+| ${s1} | ${s2} | ${s3} |
+
+💎 JACKPOT
+🏆 Won: ${reward}
+`;
+
 }
 
-////////////////////////////////////////////////////
-//// SET DRAGON
-////////////////////////////////////////////////////
+else if (s1==="🥭" && s2==="🥭" && s3==="🥭") {
 
-if(cmd === "set"){
+reward = bet*2;
+user.coins += reward;
 
-let name = args[0]
+result = `
+🎰 SLOT RESULT
 
-if(!user.dragons.includes(name))
-return message.reply("You don't own this dragon")
+| ${s1} | ${s2} | ${s3} |
 
-user.selectedDragon = name
+🥭 WIN
+🏆 Won: ${reward}
+`;
 
-message.reply(`${name} dragon selected`)
-
-save()
 }
 
-////////////////////////////////////////////////////
-//// FEED DRAGON
-////////////////////////////////////////////////////
+else if (s1==="🍉" && s2==="🍉" && s3==="🍉") {
 
-if(cmd === "feed"){
+result = `
+🎰 SLOT RESULT
 
-if(user.gems < 100) return
+| ${s1} | ${s2} | ${s3} |
 
-user.gems -= 100
-user.dragonLevel++
+🍉 TIE
+Bet returned
+`;
 
-message.reply(`🐉 Dragon leveled up to ${user.dragonLevel}`)
-
-save()
 }
 
-////////////////////////////////////////////////////
-//// LEADERBOARD COINS
-////////////////////////////////////////////////////
+else {
 
-if(cmd === "lb" && args[0]==="c"){
+user.coins -= bet;
+
+result = `
+🎰 SLOT RESULT
+
+| ${s1} | ${s2} | ${s3} |
+
+💀 YOU LOST
+Lost: ${bet}
+`;
+
+}
+
+msg.channel.send(result);
+
+save();
+
+},3000);
+
+}
+
+
+
+
+
+/* LEADERBOARD COINS */
+
+if (cmd === "lb" && args[0] === "c") {
 
 let sorted = Object.entries(users)
-.sort((a,b)=>b[1].wallet-a[1].wallet)
-.slice(0,10)
+.sort((a,b)=>b[1].coins-a[1].coins)
+.slice(0,10);
 
-let text="🏆 COINS LEADERBOARD\n\n"
+let text = "🏆 **COIN LEADERBOARD**\n\n";
 
-sorted.forEach((u,i)=>{
-text += `${i+1}. <@${u[0]}> — ${u[1].wallet}\n`
-})
+for (let i=0;i<sorted.length;i++) {
 
-message.reply(text)
+let id = sorted[i][0];
+let data = sorted[i][1];
+
+text += `${i+1}. <@${id}> — ${data.coins} coins\n`;
 
 }
 
-////////////////////////////////////////////////////
-//// LEADERBOARD BATTLES
-////////////////////////////////////////////////////
+msg.channel.send(text);
 
-if(cmd === "lb" && args[0]==="b"){
+}
+
+
+
+
+
+/* LEADERBOARD BATTLES */
+
+if (cmd === "lb" && args[0] === "b") {
 
 let sorted = Object.entries(users)
 .sort((a,b)=>b[1].wins-a[1].wins)
-.slice(0,10)
+.slice(0,10);
 
-let text="⚔ BATTLE LEADERBOARD\n\n"
+let text = "⚔ **BATTLE LEADERBOARD**\n\n";
 
-sorted.forEach((u,i)=>{
-text += `${i+1}. <@${u[0]}> — Wins:${u[1].wins} Lose:${u[1].loses}\n`
-})
+for (let i=0;i<sorted.length;i++) {
 
-message.reply(text)
+let id = sorted[i][0];
+let data = sorted[i][1];
+
+text += `${i+1}. <@${id}> — ${data.wins} wins\n`;
 
 }
 
-////////////////////////////////////////////////////
-//// CHALLENGE
-////////////////////////////////////////////////////
+msg.channel.send(text);
 
-if(cmd==="challenge"){
+}
 
-let target = message.mentions.users.first()
 
-if(!target) return
 
-const msg = await message.reply(`⚔ Battle starting...`)
+
+
+/* BATTLE */
+
+if (cmd === "battle") {
+
+let opponent = msg.mentions.users.first();
+let bet = parseInt(args[1]);
+
+if (!opponent) return msg.reply("Mention opponent");
+
+if (!bet) return msg.reply("Enter bet");
+
+let opp = getUser(opponent.id);
+
+msg.channel.send(`
+⚔ **BATTLE STARTED**
+
+${msg.author.username} VS ${opponent.username}
+
+Bet: ${bet}
+`);
 
 setTimeout(()=>{
 
-let t = getUser(target.id)
+let winner = Math.random() < 0.5 ? msg.author : opponent;
 
-let p1 = user.dragonLevel + Math.random()*10
-let p2 = t.dragonLevel + Math.random()*10
+if (winner.id === msg.author.id) {
 
-let winner
+user.coins += bet;
+opp.coins -= bet;
+user.wins++;
 
-if(p1>p2){
-user.wins++
-t.loses++
-user.gems += 10
-winner = message.author.username
-}else{
-t.wins++
-user.loses++
-t.gems += 10
-winner = target.username
-}
+} else {
 
-msg.edit(`
-⚔ DRAGON BATTLE
-
-${message.author.username} vs ${target.username}
-
-Winner : ${winner}
-Reward : 💎 10 Gems
-`)
-
-save()
-
-},6000)
+opp.coins += bet;
+user.coins -= bet;
+opp.wins++;
 
 }
 
-})
+msg.channel.send(`
+🏆 **BATTLE RESULT**
 
-client.login(process.env.TOKEN)
+Winner: ${winner.username}
+
+💰 Prize: ${bet}
+`);
+
+save();
+
+},5000);
+
+}
+
+});
+
+client.login("YOUR_BOT_TOKEN");
