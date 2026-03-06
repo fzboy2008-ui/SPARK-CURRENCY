@@ -1,13 +1,13 @@
 {
-  "name": "spark-currency-bot",
+  "name": "spark-bot",
   "version": "1.0.0",
-  "description": "Spark Currency Discord Bot",
+  "description": "Spark RPG Discord Bot",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
     "discord.js": "^14.14.1",
-    "fs": "^0.0.1-security"
+    "fs-extra": "^11.2.0"
   }
 }
