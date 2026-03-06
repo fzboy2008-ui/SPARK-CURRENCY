@@ -1,7 +1,7 @@
 {
-  "name": "spark-currency",
+  "name": "dragon-battle-bot",
   "version": "1.0.0",
-  "description": "Discord Economy Bot",
+  "description": "Discord Dragon Battle Bot",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
