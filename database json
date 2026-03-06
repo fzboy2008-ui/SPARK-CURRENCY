@@ -1,0 +1,11 @@
+{
+  "users": {},
+  "admins": [],
+  "battles": {},
+  "leaderboard": {
+    "coins": {},
+    "gems": {},
+    "wins": {},
+    "losses": {}
+  }
+}
