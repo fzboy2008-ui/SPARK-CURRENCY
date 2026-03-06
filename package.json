@@ -1,7 +1,7 @@
 {
-  "name": "spark-bot",
+  "name": "spark-currency",
   "version": "1.0.0",
-  "description": "Discord RPG Economy Bot",
+  "description": "SPARK Economy Bot",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
