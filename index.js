@@ -980,6 +980,4 @@ save()
 
 /* ================= LOGIN ================= */
 
-});
-
 client.login(process.env.TOKEN);
