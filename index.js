@@ -813,5 +813,5 @@ client.on("messageCreate", async (msg) => {
         }
     }
 });
-/* ================= LOGIN ================= */
-client.login("YOUR_BOT_TOKEN"); // <-- Ye last line me hona chahiye
+/* ================== LOGIN ================== */
+client.login(process.env.TOKEN);
