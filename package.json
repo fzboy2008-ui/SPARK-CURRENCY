@@ -1,15 +1,12 @@
 {
   "name": "spark-currency",
   "version": "1.0.0",
-  "description": "Discord Economy Bot",
+  "description": "Spark Currency Bot",
   "main": "index.js",
-  "type": "module",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "discord.js": "^14.14.1",
-    "quick.db": "^9.1.7",
-    "better-sqlite3": "^9.4.0"
+    "discord.js": "^14.14.1"
   }
 }
