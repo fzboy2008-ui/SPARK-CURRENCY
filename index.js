@@ -735,83 +735,83 @@ process.on("SIGTERM", () => {
   save();
   process.exit();
 });
+client.on("messageCreate", async (msg) => {
+    if (msg.author.bot) return;
+    if (!msg.content.startsWith(prefix)) return;
 
-/* ================= SERVER ADMIN CMDS ================= */
+    const args = msg.content.slice(prefix.length).trim().split(/ +/);
+    const cmd = args.shift().toLowerCase();
+    const user = getUser(msg.author.id);
 
-if ((cmd === "disable" || cmd === "enable") && msg.member.permissions.has("ADMINISTRATOR")) {
-    const channel = msg.mentions.channels.first();
-    if (!channel) return msg.reply("Mention a channel to enable/disable the bot.");
-    
-    // A simple in-memory map to track disabled channels
-    if (!global.disabledChannels) global.disabledChannels = [];
-    
-    if (cmd === "disable") {
-        if (!global.disabledChannels.includes(channel.id)) global.disabledChannels.push(channel.id);
-        msg.reply(`✅ Bot disabled in ${channel.name}`);
-    } else if (cmd === "enable") {
-        global.disabledChannels = global.disabledChannels.filter(id => id !== channel.id);
-        msg.reply(`✅ Bot enabled in ${channel.name}`);
-    }
-}
+    // ---------- SERVER ADMIN CMDS ----------
+    if ((cmd === "disable" || cmd === "enable") && msg.member.permissions.has("ADMINISTRATOR")) {
+        const channel = msg.mentions.channels.first();
+        if (!channel) return msg.reply("Mention a channel to enable/disable the bot.");
+        
+        if (!global.disabledChannels) global.disabledChannels = [];
 
-// ---------- BOT OWNER CMDS ----------
-const botOwnerId = "fzboy786_01978";
-
-if (msg.author.id === botOwnerId) {
-
-    // Set coins for a user
-    if (cmd === "setmoney") {
-        let target = msg.mentions.users.first();
-        let amount = parseInt(args[1]);
-        if (!target || isNaN(amount)) return msg.reply("Usage: s setmoney @user amount");
-        const targetUser = getUser(target.id);
-        targetUser.wallet = amount;
-        save();
-        msg.reply(`💰 Set ${target.username}'s wallet to ${amount}`);
+        if (cmd === "disable") {
+            if (!global.disabledChannels.includes(channel.id)) global.disabledChannels.push(channel.id);
+            msg.reply(`✅ Bot disabled in ${channel.name}`);
+        } else {
+            global.disabledChannels = global.disabledChannels.filter(id => id !== channel.id);
+            msg.reply(`✅ Bot enabled in ${channel.name}`);
+        }
     }
 
-    // Set gems for a user
-    if (cmd === "setgems") {
-        let target = msg.mentions.users.first();
-        let amount = parseInt(args[1]);
-        if (!target || isNaN(amount)) return msg.reply("Usage: s setgems @user amount");
-        const targetUser = getUser(target.id);
-        targetUser.gems = amount;
-        save();
-        msg.reply(`💎 Set ${target.username}'s gems to ${amount}`);
-    }
+    // ---------- BOT OWNER CMDS ----------
+    const botOwnerId = "fzboy786_01978";
 
-    // Reset all bot data
-    if (cmd === "reset") {
-        users = {};
-        save();
-        msg.reply("⚠ Bot data reset successfully.");
-    }
-
-    // Admin access management
-    if (cmd === "admin" && args[0]) {
-        const subcmd = args[0].toLowerCase();
-        if (subcmd === "add") {
+    if (msg.author.id === botOwnerId) {
+        if (cmd === "setmoney") {
             let target = msg.mentions.users.first();
-            if (!target) return msg.reply("Mention user to add admin.");
-            if (!user.admins) user.admins = [];
-            if (!user.admins.includes(target.id)) user.admins.push(target.id);
+            let amount = parseInt(args[1]);
+            if (!target || isNaN(amount)) return msg.reply("Usage: s setmoney @user amount");
+            const targetUser = getUser(target.id);
+            targetUser.wallet = amount;
             save();
-            msg.reply(`✅ Added <@${target.id}> as bot admin.`);
+            msg.reply(`💰 Set ${target.username}'s wallet to ${amount}`);
         }
-        if (subcmd === "remove") {
+
+        if (cmd === "setgems") {
             let target = msg.mentions.users.first();
-            if (!target) return msg.reply("Mention user to remove admin.");
-            if (!user.admins) user.admins = [];
-            user.admins = user.admins.filter(id => id !== target.id);
+            let amount = parseInt(args[1]);
+            if (!target || isNaN(amount)) return msg.reply("Usage: s setgems @user amount");
+            const targetUser = getUser(target.id);
+            targetUser.gems = amount;
             save();
-            msg.reply(`❌ Removed <@${target.id}> from bot admins.`);
+            msg.reply(`💎 Set ${target.username}'s gems to ${amount}`);
         }
-        if (subcmd === "list") {
-            msg.reply(`👑 Bot Admins:\n${user.admins ? user.admins.map(id => `<@${id}>`).join("\n") : "No admins set"}`);
+
+        if (cmd === "reset") {
+            users = {};
+            save();
+            msg.reply("⚠ Bot data reset successfully.");
+        }
+
+        if (cmd === "admin" && args[0]) {
+            const subcmd = args[0].toLowerCase();
+            if (subcmd === "add") {
+                let target = msg.mentions.users.first();
+                if (!target) return msg.reply("Mention user to add admin.");
+                if (!user.admins) user.admins = [];
+                if (!user.admins.includes(target.id)) user.admins.push(target.id);
+                save();
+                msg.reply(`✅ Added <@${target.id}> as bot admin.`);
+            }
+            if (subcmd === "remove") {
+                let target = msg.mentions.users.first();
+                if (!target) return msg.reply("Mention user to remove admin.");
+                if (!user.admins) user.admins = [];
+                user.admins = user.admins.filter(id => id !== target.id);
+                save();
+                msg.reply(`❌ Removed <@${target.id}> from bot admins.`);
+            }
+            if (subcmd === "list") {
+                msg.reply(`👑 Bot Admins:\n${user.admins ? user.admins.map(id => `<@${id}>`).join("\n") : "No admins set"}`);
+            }
         }
     }
-}
-
-// ---------- LOGIN ----------
-client.login(process.env.TOKEN);
+});
+/* ================= LOGIN ================= */
+client.login("YOUR_BOT_TOKEN"); // <-- Ye last line me hona chahiye
