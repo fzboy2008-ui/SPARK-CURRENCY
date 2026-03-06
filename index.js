@@ -30,20 +30,15 @@ function getUser(id){
  wallet:1000,
  bank:0,
  gems:0,
-
  xp:0,
  level:1,
-
  dragon:null,
-
  inventory:{
   dragons:[],
   weapons:[],
   armours:[]
  },
-
  lastDaily:0,
-
  wins:0,
  loses:0
  };
@@ -62,11 +57,13 @@ console.log("⚡ Spark Bot Online");
 
 });
 
-/* XP SYSTEM */
+/* MAIN EVENT */
 
 client.on("messageCreate", async msg => {
 
 if(msg.author.bot) return;
+
+/* XP SYSTEM */
 
 let user = getUser(msg.author.id);
 
@@ -97,19 +94,12 @@ Reward: ${reward} coins
 
 save();
 
-});
+/* COMMAND CHECK */
 
-/* COMMANDS */
-
-client.on("messageCreate", async msg => {
-
-if(msg.author.bot) return;
 if(!msg.content.startsWith(prefix)) return;
 
 const args = msg.content.slice(prefix.length).trim().split(/ +/);
 const cmd = args.shift().toLowerCase();
-
-let user = getUser(msg.author.id);
 
 /* HELP */
 
@@ -140,7 +130,8 @@ s slot
 s challenge
 
 🏆 Leaderboard
-s lb
+s lb c
+s lb b
 `);
 
 }
@@ -309,7 +300,6 @@ msg.reply(`
 
 }
 
-});
 /* COINFLIP */
 
 if(cmd==="cf" || cmd==="coinflip"){
@@ -330,7 +320,7 @@ msg.reply("🪙 Flipping coin...");
 
 setTimeout(()=>{
 
-let win = Math.random() < 0.20;
+let win = Math.random() < 0.5;
 
 if(win){
 
@@ -367,8 +357,7 @@ save();
 
 }
 
-
-/* SLOT MACHINE */
+/* SLOT */
 
 if(cmd==="slot"){
 
@@ -394,7 +383,6 @@ let s1=symbols[Math.floor(Math.random()*3)];
 let s2=symbols[Math.floor(Math.random()*3)];
 let s3=symbols[Math.floor(Math.random()*3)];
 
-let result="";
 let reward=0;
 
 if(s1==="💎" && s2==="💎" && s3==="💎"){
@@ -402,14 +390,7 @@ if(s1==="💎" && s2==="💎" && s3==="💎"){
 reward=bet*3;
 user.wallet+=reward;
 
-result=`
-🎰 SLOT RESULT
-
-| ${s1} | ${s2} | ${s3} |
-
-💎 JACKPOT
-Won: ${reward}
-`
+msg.channel.send(`🎰 | ${s1} | ${s2} | ${s3} |\n💎 JACKPOT\nWon ${reward}`);
 
 }
 
@@ -418,27 +399,13 @@ else if(s1==="🥭" && s2==="🥭" && s3==="🥭"){
 reward=bet*2;
 user.wallet+=reward;
 
-result=`
-🎰 SLOT RESULT
-
-| ${s1} | ${s2} | ${s3} |
-
-🥭 WIN
-Won: ${reward}
-`
+msg.channel.send(`🎰 | ${s1} | ${s2} | ${s3} |\n🥭 WIN\nWon ${reward}`);
 
 }
 
 else if(s1==="🍉" && s2==="🍉" && s3==="🍉"){
 
-result=`
-🎰 SLOT RESULT
-
-| ${s1} | ${s2} | ${s3} |
-
-🍉 TIE
-Bet Returned
-`
+msg.channel.send(`🎰 | ${s1} | ${s2} | ${s3} |\n🍉 TIE\nBet returned`);
 
 }
 
@@ -446,156 +413,15 @@ else{
 
 user.wallet-=bet;
 
-result=`
-🎰 SLOT RESULT
-
-| ${s1} | ${s2} | ${s3} |
-
-💀 LOSE
-Lost: ${bet}
-`
+msg.channel.send(`🎰 | ${s1} | ${s2} | ${s3} |\n💀 LOSE\nLost ${bet}`);
 
 }
-
-msg.channel.send(result)
 
 save()
 
 },4000)
 
 }
-
-
-/* SHOP */
-
-if(cmd==="shop"){
-
-msg.reply(`
-🛒 **SHOP**
-
-1️⃣ Dragons
-2️⃣ Weapons
-3️⃣ Armours
-
-Use:
-s dragons
-s weapons
-s armours
-`)
-
-}
-
-
-/* DRAGONS */
-
-if(cmd==="dragons"){
-
-msg.reply(`
-🐉 **DRAGON SHOP**
-
-🔥 Fire Dragon — 4,000,000
-⚡ Lightning Dragon — 6,000,000
-🌪 Wind Dragon — 7,000,000
-❄ Ice Dragon — 9,000,000
-
-Buy using:
-s buy dragon fire
-`)
-
-}
-
-
-/* WEAPONS */
-
-if(cmd==="weapons"){
-
-msg.reply(`
-⚔ **WEAPON SHOP**
-
-🔥 Fire Sword — 1,000,000
-⚡ Lightning Blade — 1,000,000
-🌪 Wind Katana — 1,000,000
-❄ Ice Spear — 1,000,000
-`)
-
-}
-
-
-/* ARMOURS */
-
-if(cmd==="armours"){
-
-msg.reply(`
-🛡 **ARMOUR SHOP**
-
-🔥 Fire Armour — 500,000
-⚡ Lightning Armour — 500,000
-🌪 Wind Armour — 500,000
-❄ Ice Armour — 500,000
-`)
-
-}
-
-
-/* BUY SYSTEM */
-
-if(cmd==="buy"){
-
-let type=args[0];
-let name=args[1];
-
-if(type==="dragon"){
-
-let price=4000000;
-
-if(user.wallet<price) return msg.reply("Not enough coins");
-
-user.wallet-=price;
-
-user.inventory.dragons.push(name);
-
-save()
-
-msg.reply(`🐉 Bought ${name} dragon`)
-
-}
-
-}
-
-
-/* SET DRAGON */
-
-if(cmd==="set"){
-
-let dragon=args[0];
-
-if(!user.inventory.dragons.includes(dragon)) return msg.reply("You don't own this dragon");
-
-user.dragon=dragon;
-
-save()
-
-msg.reply(`🐉 Dragon set to ${dragon}`)
-
-}
-
-
-/* FEED DRAGON */
-
-if(cmd==="feed"){
-
-if(!user.dragon) return msg.reply("No dragon selected");
-
-if(user.gems<100) return msg.reply("Need 100 gems");
-
-user.gems-=100;
-
-msg.reply(`🐉 ${user.dragon} leveled up`)
-
-save()
-
-}
-
 
 /* LEADERBOARD COINS */
 
@@ -620,7 +446,6 @@ msg.channel.send(text)
 
 }
 
-
 /* LEADERBOARD BATTLES */
 
 if(cmd==="lb" && args[0]==="b"){
@@ -644,45 +469,8 @@ msg.channel.send(text)
 
 }
 
+});
 
-/* BATTLE */
-
-if(cmd==="challenge"){
-
-let opponent=msg.mentions.users.first()
-
-if(!opponent) return msg.reply("Mention user")
-
-msg.channel.send(`
-⚔ **BATTLE CHALLENGE**
-
-${msg.author.username} challenged ${opponent.username}
-
-Type:
-s accept
-`)
-
-}
-
-if(cmd==="accept"){
-
-msg.channel.send("⚔ Battle starting...")
-
-setTimeout(()=>{
-
-let players=[...msg.channel.members.values()]
-let winner=players[Math.floor(Math.random()*players.length)]
-
-msg.channel.send(`
-🏆 **BATTLE RESULT**
-
-Winner: ${winner.user.username}
-
-Reward: 10 gems
-`)
-
-},5000)
-
-   }
+/* LOGIN */
 
 client.login(process.env.TOKEN);
