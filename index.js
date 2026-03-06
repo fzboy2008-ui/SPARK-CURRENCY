@@ -72,9 +72,9 @@ client.on("messageCreate", async msg => {
 
     msg.channel.send(`
 ┏━━━━━━━━━━━━━━━━━━┓
-┃ 🏆 **RANK UP!** ┃
-┃ ${msg.author.username} reached Rank **${user.rank}** ┃
-┃ 💰 Coins: +5000  💎 Gems: +5 ┃
+┃ 🏆 **RANK UP!** 
+┃ ${msg.author.username} reached Rank **${user.rank}** 
+┃ 💰 Coins: +5000  💎 Gems: +5 
 ┗━━━━━━━━━━━━━━━━━━┛
 `);
   }
@@ -95,19 +95,19 @@ client.on("messageCreate", async msg => {
   if (cmd === "help") {
     msg.reply(`
 ┏━━━━━━━━━━━━━━━━━━┓
-┃ ⚡ **SPARK BOT COMMANDS** ┃
-┃ 💰 Economy ┃
-┃ s bal │ s deposit │ s withdraw │ s give ┃
-┃ 🎁 Rewards ┃
-┃ s daily ┃
-┃ 👤 Profile ┃
-┃ s profile │ s rank │ s inv ┃
-┃ 🎮 Games ┃
-┃ s cf │ s slot ┃
-┃ ⚔ Battle ┃
-┃ s challenge │ s accept ┃
-┃ 🏆 Leaderboard ┃
-┃ s lb c │ s lb b ┃
+┃ ⚡ **SPARK BOT COMMANDS** 
+┃ 💰 Economy 
+┃ s bal │ s deposit │ s withdraw │ s give 
+┃ 🎁 Rewards 
+┃ s daily 
+┃ 👤 Profile 
+┃ s profile │ s rank │ s inv 
+┃ 🎮 Games 
+┃ s cf │ s slot 
+┃ ⚔ Battle 
+┃ s challenge │ s accept 
+┃ 🏆 Leaderboard 
+┃ s lb c │ s lb b 
 ┗━━━━━━━━━━━━━━━━━━┛
 `);
   }
@@ -116,10 +116,10 @@ client.on("messageCreate", async msg => {
   if (cmd === "bal") {
     msg.reply(`
 ┏━━━━━━━━━━━━━━━━━━┓
-┃ 💵 **${msg.author.username} Balance** ┃
-┃ 👜 Wallet: ${user.wallet} ┃
-┃ 🏦 Bank: ${user.bank} ┃
-┃ 💎 Gems: ${user.gems} ┃
+┃ 💵 **${msg.author.username} Balance** 
+┃ 👜 Wallet: ${user.wallet} 
+┃ 🏦 Bank: ${user.bank} 
+┃ 💎 Gems: ${user.gems} 
 ┗━━━━━━━━━━━━━━━━━━┛
 `);
   }
@@ -191,15 +191,15 @@ client.on("messageCreate", async msg => {
   if (cmd === "profile") {
     msg.reply(`
 ┏━━━━━━━━━━━━━━━━━━┓
-┃ 👤 **PROFILE** ┃
-┃ Name: ${msg.author.username} ┃
-┃ Rank: ${user.rank} ┃
-┃ XP: ${user.xp}/2500 ┃
-┃ 🐉 Dragon: ${user.dragon || "None"} ┃
-┃ ⚔ Weapon: ${user.weapon || "None"} ┃
-┃ 🛡 Armour: ${user.armour || "None"} ┃
-┃ Wins: ${user.wins} ┃
-┃ Loses: ${user.loses} ┃
+┃ 👤 **PROFILE** 
+┃ Name: ${msg.author.username} 
+┃ Rank: ${user.rank} 
+┃ XP: ${user.xp}/2500 
+┃ 🐉 Dragon: ${user.dragon || "None"} 
+┃ ⚔ Weapon: ${user.weapon || "None"} 
+┃ 🛡 Armour: ${user.armour || "None"} 
+┃ Wins: ${user.wins} 
+┃ Loses: ${user.loses} 
 ┗━━━━━━━━━━━━━━━━━━┛
 `);
   }
