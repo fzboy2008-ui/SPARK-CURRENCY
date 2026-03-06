@@ -1,8 +1,8 @@
-/* ================== PART 1: CORE BOT + DATABASE + RANK SYSTEM ================== */
+/* ================= IMPORTS ================= */
+const { Client, GatewayIntentBits } = require('discord.js');
+const fs = require('fs');
 
-const { Client, GatewayIntentBits } = require("discord.js");
-const fs = require("fs");
-
+/* ================= CLIENT SETUP ================= */
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -13,8 +13,7 @@ const client = new Client({
 
 const prefix = "s ";
 
-/* ================== DATABASE ================== */
-
+/* ================= DATABASE ================= */
 if (!fs.existsSync("./database")) fs.mkdirSync("./database");
 if (!fs.existsSync("./database/users.json")) fs.writeFileSync("./database/users.json", "{}");
 
@@ -30,76 +29,73 @@ function getUser(id) {
       wallet: 0,
       bank: 0,
       gems: 0,
+
       xp: 0,
       rank: 0,
+
       dragon: null,
       inventory: {
         dragons: [],
         weapons: [],
-        armours: [],
+        armours: []
       },
+
       lastDaily: 0,
+
       wins: 0,
-      loses: 0,
+      loses: 0
     };
   }
   return users[id];
 }
 
-/* ================== READY EVENT ================== */
-
+/* ================= BOT READY ================= */
 client.once("ready", () => {
-  console.log("⚡ Spark Bot Online");
+  console.log(`⚡ Spark Bot Online as ${client.user.tag}`);
 });
 
-/* ================== XP / RANK SYSTEM ================== */
-
-client.on("messageCreate", (msg) => {
+/* ================= XP & RANK SYSTEM ================= */
+client.on("messageCreate", async msg => {
   if (msg.author.bot) return;
 
-  const user = getUser(msg.author.id);
+  let user = getUser(msg.author.id);
 
-  // 1 chat = 1 XP
+  // 1 XP per message
   user.xp += 1;
-
-  // XP needed per rank
-  const needed = 2500;
+  let needed = 2500; // XP per rank
 
   if (user.xp >= needed) {
-    user.xp -= needed; // reset XP for next rank
+    user.xp -= needed;
     user.rank += 1;
 
-    // Reward per rank up
-    const coinReward = 5000;
-    const gemReward = 5;
-    user.wallet += coinReward;
-    user.gems += gemReward;
+    // Rank-up reward
+    user.wallet += 5000;
+    user.gems += 5;
 
     msg.channel.send(`
-🏆 **RANK UP**
+🏆 **RANK UP!**
 
-${msg.author}
+${msg.author.username} reached **Rank ${user.rank}**
 
-New Rank: ${user.rank}
-
-Reward: ${coinReward} coins + ${gemReward} gems
+💰 Coins: +5000
+💎 Gems: +5
 `);
   }
 
   save();
 });
 
-/* ================== COMMAND HANDLER ================== */
-
-client.on("messageCreate", (msg) => {
+/* ================= COMMAND HANDLER ================= */
+client.on("messageCreate", async msg => {
   if (msg.author.bot) return;
   if (!msg.content.startsWith(prefix)) return;
 
   const args = msg.content.slice(prefix.length).trim().split(/ +/);
   const cmd = args.shift().toLowerCase();
-  const user = getUser(msg.author.id);
 
-  /* ================== HELP ================== */
+  let user = getUser(msg.author.id);
+
+  /* ================= HELP ================= */
   if (cmd === "help") {
     msg.reply(`
 ⚡ **SPARK BOT COMMANDS**
@@ -123,7 +119,8 @@ s cf
 s slot
 
 ⚔ Battle
-s challenge / s accept
+s challenge
+s accept
 
 🏆 Leaderboard
 s lb c
@@ -131,7 +128,101 @@ s lb b
 `);
   }
 
-  /* ================== RANK INFO ================== */
+  /* ================= BALANCE ================= */
+  if (cmd === "bal") {
+    msg.reply(`
+💰 **${msg.author.username} Balance**
+
+👛 Wallet: ${user.wallet}
+🏦 Bank: ${user.bank}
+💎 Gems: ${user.gems}
+`);
+  }
+
+  /* ================= DEPOSIT ================= */
+  if (cmd === "deposit") {
+    let amount = args[0];
+    if (amount === "all") amount = user.wallet;
+    amount = parseInt(amount);
+
+    if (!amount || amount <= 0) return msg.reply("Enter a valid amount");
+    if (amount > user.wallet) return msg.reply("Not enough wallet coins");
+
+    user.wallet -= amount;
+    user.bank += amount;
+
+    save();
+    msg.reply(`🏦 Deposited ${amount} coins`);
+  }
+
+  /* ================= WITHDRAW ================= */
+  if (cmd === "withdraw") {
+    let amount = args[0];
+    if (amount === "all") amount = user.bank;
+    amount = parseInt(amount);
+
+    if (!amount || amount <= 0) return msg.reply("Enter a valid amount");
+    if (amount > user.bank) return msg.reply("Not enough bank coins");
+
+    user.bank -= amount;
+    user.wallet += amount;
+
+    save();
+    msg.reply(`👛 Withdrawn ${amount} coins`);
+  }
+
+  /* ================= GIVE ================= */
+  if (cmd === "give") {
+    let target = msg.mentions.users.first();
+    let amount = parseInt(args[1]);
+
+    if (!target) return msg.reply("Mention a user to give coins");
+    if (!amount || amount <= 0) return msg.reply("Enter a valid amount");
+    if (amount > user.wallet) return msg.reply("Not enough coins");
+
+    let targetUser = getUser(target.id);
+
+    user.wallet -= amount;
+    targetUser.wallet += amount;
+
+    save();
+    msg.reply(`💸 Sent ${amount} coins to ${target.username}`);
+  }
+
+  /* ================= DAILY ================= */
+  if (cmd === "daily") {
+    let now = Date.now();
+
+    if (now - user.lastDaily < 86400000) {
+      return msg.reply("⏳ You already claimed your daily reward!");
+    }
+
+    user.wallet += 500;
+    user.lastDaily = now;
+
+    save();
+    msg.reply(`
+🎁 **DAILY REWARD**
+
+You received 500 coins!
+`);
+  }
+
+  /* ================= PROFILE ================= */
+  if (cmd === "profile") {
+    msg.reply(`
+👤 **PROFILE**
+
+Name: ${msg.author.username}
+Rank: ${user.rank}
+XP: ${user.xp}/2500
+🐉 Dragon: ${user.dragon || "None"}
+⚔ Wins: ${user.wins}
+💀 Loses: ${user.loses}
+`);
+  }
+
+  /* ================= RANK ================= */
   if (cmd === "rank") {
     msg.reply(`
 🏅 **RANK INFO**
@@ -141,350 +232,509 @@ XP: ${user.xp}/2500
 `);
   }
 
-  save();
-});
+  /* ================= INVENTORY ================= */
+  if (cmd === "inv") {
+    msg.reply(`
+🎒 **INVENTORY**
 
-/* ================== SAVE ON EXIT ================== */
-process.on("exit", () => {
-  save();
-});
-
-/* ================== PART 2: ECONOMY + DAILY + COINFLIP + SLOT ================== */
-
-/* ================== BALANCE ================== */
-if (cmd === "bal") {
-  msg.reply(`
-💰 **${msg.author.username} Balance**
-
-👛 Wallet: ${user.wallet}
-🏦 Bank: ${user.bank}
-💎 Gems: ${user.gems}
+🐉 Dragons: ${user.inventory.dragons.join(", ") || "None"}
+⚔ Weapons: ${user.inventory.weapons.join(", ") || "None"}
+🛡 Armours: ${user.inventory.armours.join(", ") || "None"}
 `);
-}
-
-/* ================== DEPOSIT ================== */
-if (cmd === "deposit") {
-  let amount = args[0];
-  if (amount === "all") amount = user.wallet;
-  amount = parseInt(amount);
-  if (!amount || amount <= 0) return msg.reply("Enter valid amount");
-  if (amount > user.wallet) return msg.reply("Not enough wallet coins");
-
-  user.wallet -= amount;
-  user.bank += amount;
-
-  save();
-  msg.reply(`🏦 Deposited ${amount} coins`);
-}
-
-/* ================== WITHDRAW ================== */
-if (cmd === "withdraw") {
-  let amount = args[0];
-  if (amount === "all") amount = user.bank;
-  amount = parseInt(amount);
-  if (!amount || amount <= 0) return msg.reply("Enter valid amount");
-  if (amount > user.bank) return msg.reply("Not enough bank coins");
-
-  user.bank -= amount;
-  user.wallet += amount;
-
-  save();
-  msg.reply(`👛 Withdrawn ${amount} coins`);
-}
-
-/* ================== GIVE ================== */
-if (cmd === "give") {
-  let target = msg.mentions.users.first();
-  let amount = parseInt(args[1]);
-  if (!target) return msg.reply("Mention user");
-  if (!amount || amount <= 0) return msg.reply("Enter amount");
-  if (amount > user.wallet) return msg.reply("Not enough coins");
-
-  let targetUser = getUser(target.id);
-  user.wallet -= amount;
-  targetUser.wallet += amount;
-
-  save();
-  msg.reply(`💸 Sent ${amount} coins to ${target.username}`);
-}
-
-/* ================== DAILY ================== */
-if (cmd === "daily") {
-  let now = Date.now();
-  if (now - user.lastDaily < 86400000) {
-    return msg.reply("⏳ You already claimed daily reward");
   }
 
-  const rewardCoins = 500;
-  const rewardGems = 2;
+});
+client.on("messageCreate", async msg => {
+  if (msg.author.bot) return;
+  if (!msg.content.startsWith(prefix)) return;
 
-  user.wallet += rewardCoins;
-  user.gems += rewardGems;
-  user.lastDaily = now;
+  const args = msg.content.slice(prefix.length).trim().split(/ +/);
+  const cmd = args.shift().toLowerCase();
+  let user = getUser(msg.author.id);
 
-  save();
-  msg.reply(`
-🎁 **DAILY REWARD**
+  /* ================= COINFLIP ================= */
+  if (cmd === "cf" || cmd === "coinflip") {
+    let bet = args[0];
+    if (bet === "all") bet = user.wallet;
+    bet = parseInt(bet);
 
-You received ${rewardCoins} coins + ${rewardGems} gems
-`);
-}
+    if (!bet || bet <= 0) return msg.reply("Enter a valid bet");
+    if (bet > 200000) bet = 200000;
+    if (bet > user.wallet) return msg.reply("Not enough coins");
 
-/* ================== COINFLIP ================== */
-if (cmd === "cf" || cmd === "coinflip") {
-  let bet = args[0];
-  if (bet === "all") bet = user.wallet;
-  bet = parseInt(bet);
-  if (!bet || bet <= 0) return msg.reply("Enter bet");
-  if (bet > user.wallet) return msg.reply("Not enough coins");
+    msg.reply("🪙 **Flipping the coin...**");
 
-  msg.reply("🪙 Flipping coin...");
-
-  setTimeout(() => {
-    const win = Math.random() < 0.5;
-    if (win) {
-      user.wallet += bet; // 2x reward logic applied here
-      msg.channel.send(`
+    setTimeout(() => {
+      let win = Math.random() < 0.20; // 20% win chance
+      if (win) {
+        user.wallet += bet; // 2x reward logic handled by adding bet itself
+        msg.channel.send(`
 🪙 **COINFLIP RESULT**
 
-✨ YOU WON!
+✨ YOU WON
+
 Bet: ${bet}
-New Wallet Balance: ${user.wallet}
+Won: ${bet}
 `);
-    } else {
-      user.wallet -= bet;
-      msg.channel.send(`
+      } else {
+        user.wallet -= bet;
+        msg.channel.send(`
 🪙 **COINFLIP RESULT**
 
 💀 YOU LOST
+
 Lost: ${bet}
-New Wallet Balance: ${user.wallet}
 `);
+      }
+      save();
+    }, 3000);
+  }
+
+  /* ================= SLOT MACHINE ================= */
+  if (cmd === "slot") {
+    let bet = args[0];
+    if (bet === "all") bet = user.wallet;
+    bet = parseInt(bet);
+
+    if (!bet || bet <= 0) return msg.reply("Enter a valid bet");
+    if (bet > 200000) bet = 200000;
+    if (bet > user.wallet) return msg.reply("Not enough coins");
+
+    const symbols = ["💎", "🥭", "🍉"];
+
+    // Animated spinning UI
+    let spinMsg = await msg.reply("🎰 **Spinning the slot...**");
+    let spinCount = 6;
+
+    for (let i = 0; i < spinCount; i++) {
+      let s1 = symbols[Math.floor(Math.random() * 3)];
+      let s2 = symbols[Math.floor(Math.random() * 3)];
+      let s3 = symbols[Math.floor(Math.random() * 3)];
+      await spinMsg.edit(`🎰 | ${s1} | ${s2} | ${s3} |`);
+      await new Promise(res => setTimeout(res, 500));
     }
+
+    // Final result
+    let s1 = symbols[Math.floor(Math.random() * 3)];
+    let s2 = symbols[Math.floor(Math.random() * 3)];
+    let s3 = symbols[Math.floor(Math.random() * 3)];
+
+    let resultText = `🎰 **SLOT RESULT**\n\n| ${s1} | ${s2} | ${s3} |\n`;
+    let reward = 0;
+
+    if (s1 === s2 && s2 === s3) {
+      if (s1 === "💎") {
+        reward = bet * 3;
+        user.wallet += reward;
+        resultText += `💎 JACKPOT! Won: ${reward}`;
+      } else if (s1 === "🥭") {
+        reward = bet * 2;
+        user.wallet += reward;
+        resultText += `🥭 WIN! Won: ${reward}`;
+      } else if (s1 === "🍉") {
+        resultText += `🍉 TIE! Bet returned`;
+      }
+    } else {
+      user.wallet -= bet;
+      resultText += `💀 LOSE! Lost: ${bet}`;
+    }
+
+    await spinMsg.edit(resultText);
     save();
-  }, 2000);
-}
-
-/* ================== SLOT MACHINE ================== */
-if (cmd === "slot") {
-  let bet = args[0];
-  if (bet === "all") bet = user.wallet;
-  bet = parseInt(bet);
-  if (!bet || bet <= 0) return msg.reply("Enter bet");
-  if (bet > user.wallet) return msg.reply("Not enough coins");
-
-  const symbols = ["💎", "🥭", "🍉"];
-  let spinMsg = await msg.reply("🎰 **Spinning the slot...**");
-
-  // Animated spinning simulation
-  let spinResult = [];
-  for (let i = 0; i < 5; i++) {
-    spinResult = [
-      symbols[Math.floor(Math.random() * symbols.length)],
-      symbols[Math.floor(Math.random() * symbols.length)],
-      symbols[Math.floor(Math.random() * symbols.length)],
-    ];
-    await spinMsg.edit(`🎰 | ${spinResult.join(" | ")} |`);
-    await new Promise((r) => setTimeout(r, 600)); // 0.6s per spin frame
   }
 
-  const [s1, s2, s3] = spinResult;
-  let resultText = "";
-  let reward = 0;
+  /* ================= DRAGON SHOP ================= */
+  const DRAGONS = {
+    FIRE_DRAGON: { price: 5000000 },
+    ICE_DRAGON: { price: 6000000 },
+    WIND_DRAGON: { price: 7000000 },
+    LIGHTNING_DRAGON: { price: 8000000 },
+    EARTH_DRAGON: { price: 10000000 }
+  };
 
-  if (s1 === "💎" && s2 === "💎" && s3 === "💎") {
-    reward = bet * 3;
-    user.wallet += reward;
-    resultText = `🎰 | ${s1} | ${s2} | ${s3} |\n💎 JACKPOT! Won ${reward} coins`;
-  } else if (s1 === "🥭" && s2 === "🥭" && s3 === "🥭") {
-    reward = bet * 2;
-    user.wallet += reward;
-    resultText = `🎰 | ${s1} | ${s2} | ${s3} |\n🥭 WIN! Won ${reward} coins`;
-  } else if (s1 === "🍉" && s2 === "🍉" && s3 === "🍉") {
-    resultText = `🎰 | ${s1} | ${s2} | ${s3} |\n🍉 TIE! Bet returned`;
-  } else {
-    user.wallet -= bet;
-    resultText = `🎰 | ${s1} | ${s2} | ${s3} |\n💀 LOSE! Lost ${bet} coins`;
+  if (cmd === "dragons") {
+    let shopText = "🐉 **DRAGON SHOP**\n\n";
+    for (let d in DRAGONS) {
+      shopText += `🔥 ${d} — ${DRAGONS[d].price} coins\n`;
+    }
+    shopText += "\nBuy using: s buy dragon <dragon_name>";
+    msg.reply(shopText);
   }
 
-  await spinMsg.edit(resultText);
-  save();
-     }
-/* ================== PART 3: DRAGONS SYSTEM ================== */
+  if (cmd === "buy") {
+    let type = args[0];
+    let name = args[1]?.toUpperCase();
 
-/* ================== DRAGON SHOP ================== */
-if (cmd === "dragons") {
-  msg.reply(`
-🐉 **DRAGON SHOP**
+    if (type === "dragon") {
+      if (!DRAGONS[name]) return msg.reply("Dragon not found");
+      if (user.inventory.dragons.includes(name)) return msg.reply("You already own this dragon");
+      if (user.wallet < DRAGONS[name].price) return msg.reply("Not enough coins");
 
-1️⃣ FIRE_DRAGON — 5,000,000 coins  
-2️⃣ ICE_DRAGON — 6,000,000 coins  
-3️⃣ WIND_DRAGON — 7,000,000 coins  
-4️⃣ LIGHTNING_DRAGON — 8,000,000 coins  
-5️⃣ EARTH_DRAGON — 10,000,000 coins  
+      user.wallet -= DRAGONS[name].price;
+      user.inventory.dragons.push(name);
+      save();
+      msg.reply(`🐉 Bought ${name} dragon`);
+    }
+  }
 
-Use:
-s buy dragon <dragon_name>
+  if (cmd === "set") {
+    let dragon = args[0]?.toUpperCase();
+    if (!user.inventory.dragons.includes(dragon)) return msg.reply("You don't own this dragon");
+    user.dragon = dragon;
+    save();
+    msg.reply(`🐉 Dragon set to ${dragon}`);
+  }
+
+  if (cmd === "feed") {
+    if (!user.dragon) return msg.reply("No dragon selected");
+    if (user.gems < 100) return msg.reply("Need 100 gems to upgrade dragon");
+    user.gems -= 100;
+    msg.reply(`🐉 ${user.dragon} leveled up!`);
+    save();
+  }
+});
+client.on("messageCreate", async msg => {
+  if (msg.author.bot) return;
+  if (!msg.content.startsWith(prefix)) return;
+
+  const args = msg.content.slice(prefix.length).trim().split(/ +/);
+  const cmd = args.shift().toLowerCase();
+  let user = getUser(msg.author.id);
+
+  /* ================= DAILY REWARD ================= */
+  if (cmd === "daily") {
+    let now = Date.now();
+    if (now - user.lastDaily < 86400000) return msg.reply("⏳ You already claimed your daily reward");
+
+    user.wallet += 500;
+    user.gems += 5;
+    user.lastDaily = now;
+
+    save();
+
+    msg.reply(`
+🎁 **DAILY REWARD**
+
+💰 Coins: 500  
+💎 Gems: 5
 `);
-}
-
-/* ================== BUY DRAGON ================== */
-if (cmd === "buy") {
-  let type = args[0];
-  let name = args[1]?.toUpperCase();
-  if (type === "dragon") {
-    const dragonPrices = {
-      FIRE_DRAGON: 5000000,
-      ICE_DRAGON: 6000000,
-      WIND_DRAGON: 7000000,
-      LIGHTNING_DRAGON: 8000000,
-      EARTH_DRAGON: 10000000,
-    };
-    if (!dragonPrices[name]) return msg.reply("Invalid dragon name");
-    if (user.wallet < dragonPrices[name]) return msg.reply("Not enough coins");
-
-    if (user.inventory.dragons.includes(name)) return msg.reply("You already own this dragon");
-
-    user.wallet -= dragonPrices[name];
-    user.inventory.dragons.push(name);
-    save();
-    msg.reply(`🐉 Bought **${name}** dragon!`);
   }
-}
 
-/* ================== SELECT DRAGON ================== */
-if (cmd === "set") {
-  let dragon = args[0]?.toUpperCase();
-  if (!user.inventory.dragons.includes(dragon)) return msg.reply("You don't own this dragon");
-  user.dragon = dragon;
-  save();
-  msg.reply(`🐉 Selected dragon: **${dragon}**`);
-}
-
-/* ================== FEED DRAGON ================== */
-if (cmd === "feed") {
-  if (!user.dragon) return msg.reply("No dragon selected. Use s set <dragon_name>");
-  if (user.gems < 100) return msg.reply("Need 100 gems to feed dragon");
-
-  user.gems -= 100;
-
-  if (!user.dragonsLevel) user.dragonsLevel = {};
-  if (!user.dragonsLevel[user.dragon]) user.dragonsLevel[user.dragon] = 1;
-
-  user.dragonsLevel[user.dragon] += 1;
-
-  save();
-  msg.reply(`🐉 **${user.dragon}** leveled up to **Level ${user.dragonsLevel[user.dragon]}**`);
-}
-
-/* ================== PROFILE ================== */
-if (cmd === "profile" || cmd === "p") {
-  let dragonLevel = user.dragon ? user.dragonsLevel?.[user.dragon] || 1 : "None";
-  msg.reply(`
+  /* ================= PROFILE ================= */
+  if (cmd === "profile" || cmd === "p") {
+    msg.reply(`
 👤 **PROFILE**
 
 Name: ${msg.author.username}  
 🏅 Rank: ${user.level}  
 XP: ${user.xp}  
-🐉 Dragon: ${user.dragon || "None"} (Level: ${dragonLevel})  
+🐉 Dragon: ${user.dragon ? user.dragon : "None"}  
 ⚔ Wins: ${user.wins}  
-💀 Loses: ${user.loses}
+💀 Loses: ${user.loses}  
 `);
-}
-/* ================== PART 5: COINFLIP & ANIMATED SLOT ================== */
-
-/* ================== COINFLIP ================== */
-if (cmd === "cf" || cmd === "coinflip") {
-  let bet = args[0];
-  if (bet === "all") bet = user.wallet;
-  bet = parseInt(bet);
-
-  if (!bet || bet <= 0) return msg.reply("Enter a valid bet");
-  if (bet > user.wallet) return msg.reply("Not enough coins");
-  if (bet > 200000) bet = 200000;
-
-  msg.reply("🪙 Flipping the coin...");
-
-  // Animated coinflip simulation
-  setTimeout(() => {
-    let win = Math.random() < 0.5; // 50% chance
-    if (win) {
-      user.wallet += bet; // 2x total = bet returned + bet won
-      msg.channel.send(`
-🪙 **COINFLIP RESULT**
-
-✨ **YOU WON!**  
-Bet: ${bet}  
-Total coins added: ${bet}  
-New Balance: ${user.wallet}
-`);
-    } else {
-      user.wallet -= bet;
-      msg.channel.send(`
-🪙 **COINFLIP RESULT**
-
-💀 **YOU LOST**  
-Lost: ${bet}  
-New Balance: ${user.wallet}
-`);
-    }
-    save();
-  }, 2500);
-}
-
-/* ================== SLOT MACHINE ================== */
-if (cmd === "slot") {
-  let bet = args[0];
-  if (bet === "all") bet = user.wallet;
-  bet = parseInt(bet);
-
-  if (!bet || bet <= 0) return msg.reply("Enter a valid bet");
-  if (bet > user.wallet) return msg.reply("Not enough coins");
-  if (bet > 200000) bet = 200000;
-
-  const symbols = ["💎", "🥭", "🍉"];
-  const spinMsg = await msg.reply("🎰 Spinning the slots...");
-
-  // Animated spinning effect (3 steps)
-  let spin1 = symbols[Math.floor(Math.random() * 3)];
-  let spin2 = symbols[Math.floor(Math.random() * 3)];
-  let spin3 = symbols[Math.floor(Math.random() * 3)];
-
-  await new Promise(r => setTimeout(r, 1000));
-  await spinMsg.edit(`🎰 | ${spin1} | ? | ? |`);
-  await new Promise(r => setTimeout(r, 1000));
-  await spinMsg.edit(`🎰 | ${spin1} | ${spin2} | ? |`);
-  await new Promise(r => setTimeout(r, 1000));
-  await spinMsg.edit(`🎰 | ${spin1} | ${spin2} | ${spin3} |`);
-
-  // Determine result
-  let reward = 0;
-  let resultText = "";
-  if (spin1 === "💎" && spin2 === "💎" && spin3 === "💎") {
-    reward = bet * 3;
-    user.wallet += reward;
-    resultText = `💎 **JACKPOT!** Won ${reward} coins!`;
-  } else if (spin1 === "🥭" && spin2 === "🥭" && spin3 === "🥭") {
-    reward = bet * 2;
-    user.wallet += reward;
-    resultText = `🥭 **WIN!** Won ${reward} coins!`;
-  } else if (spin1 === "🍉" && spin2 === "🍉" && spin3 === "🍉") {
-    resultText = `🍉 **TIE!** Bet returned.`;
-  } else {
-    user.wallet -= bet;
-    resultText = `💀 **LOSE!** Lost ${bet} coins.`;
   }
 
-  await new Promise(r => setTimeout(r, 500));
-  spinMsg.edit(`
-🎰 **SLOT MACHINE RESULT**  
-| ${spin1} | ${spin2} | ${spin3} |
+  /* ================= BATTLE SYSTEM ================= */
+  if (cmd === "challenge") {
+    let opponent = msg.mentions.users.first();
+    if (!opponent) return msg.reply("Mention a user to challenge");
 
-${resultText}  
-New Balance: ${user.wallet}
+    msg.channel.send(`
+⚔ **BATTLE CHALLENGE**
+
+${msg.author.username} challenged ${opponent.username}!
+
+Type s accept to accept the battle.
 `);
+  }
 
+  if (cmd === "accept") {
+    msg.channel.send("⚔ Battle starting...");
+
+    setTimeout(() => {
+      let members = [...msg.channel.members.values()].filter(m => !m.user.bot);
+      let winnerMember = members[Math.floor(Math.random() * members.length)];
+      let loserMember = members.find(m => m.id !== winnerMember.id);
+
+      let winnerUser = getUser(winnerMember.id);
+      let loserUser = getUser(loserMember.id);
+
+      winnerUser.wins += 1;
+      loserUser.loses += 1;
+      winnerUser.gems += 5; // battle reward
+
+      save();
+
+      msg.channel.send(`
+🏆 **BATTLE RESULT**
+
+Winner: ${winnerMember.user.username}  
+Reward: 5 Gems
+`);
+    }, 5000);
+  }
+
+  /* ================= LEADERBOARDS ================= */
+  if (cmd === "lb") {
+    let type = args[0];
+    if (type === "c") {
+      // Coins/Gems leaderboard
+      let sorted = Object.entries(users)
+        .sort((a, b) => (b[1].wallet + b[1].bank) - (a[1].wallet + a[1].bank))
+        .slice(0, 10);
+
+      let text = "🏆 **GLOBAL COINS/GEMS LEADERBOARD**\n\n";
+      for (let i = 0; i < sorted.length; i++) {
+        let id = sorted[i][0];
+        let data = sorted[i][1];
+        text += `${i + 1}. <@${id}> — Coins: ${data.wallet + data.bank}, Gems: ${data.gems}\n`;
+      }
+      msg.channel.send(text);
+    }
+
+    if (type === "b") {
+      // Battle leaderboard
+      let sorted = Object.entries(users)
+        .sort((a, b) => b[1].wins - a[1].wins)
+        .slice(0, 10);
+
+      let text = "⚔ **GLOBAL BATTLE LEADERBOARD**\n\n";
+      for (let i = 0; i < sorted.length; i++) {
+        let id = sorted[i][0];
+        let data = sorted[i][1];
+        text += `${i + 1}. <@${id}> — Wins: ${data.wins}, Loses: ${data.loses}\n`;
+      }
+      msg.channel.send(text);
+    }
+  }
+});
+client.on("messageCreate", async msg => {
+  if (msg.author.bot) return;
+  if (!msg.content.startsWith(prefix)) return;
+
+  const args = msg.content.slice(prefix.length).trim().split(/ +/);
+  const cmd = args.shift().toLowerCase();
+  let user = getUser(msg.author.id);
+
+  /* ================= ADMIN / OWNER COMMANDS ================= */
+  const OWNER_ID = "fzboy786_01978"; // replace with actual Discord ID if needed
+  if (msg.author.id === OWNER_ID) {
+    if (cmd === "addcoins") {
+      let target = msg.mentions.users.first();
+      let amount = parseInt(args[1]);
+      if (!target || !amount) return msg.reply("Usage: s addcoins @user amount");
+
+      let targetUser = getUser(target.id);
+      targetUser.wallet += amount;
+      save();
+      msg.reply(`💰 Added ${amount} coins to ${target.username}`);
+    }
+
+    if (cmd === "addgems") {
+      let target = msg.mentions.users.first();
+      let amount = parseInt(args[1]);
+      if (!target || !amount) return msg.reply("Usage: s addgems @user amount");
+
+      let targetUser = getUser(target.id);
+      targetUser.gems += amount;
+      save();
+      msg.reply(`💎 Added ${amount} gems to ${target.username}`);
+    }
+
+    if (cmd === "resetuser") {
+      let target = msg.mentions.users.first();
+      if (!target) return msg.reply("Usage: s resetuser @user");
+      users[target.id] = undefined;
+      save();
+      msg.reply(`♻️ Reset ${target.username}'s data`);
+    }
+  }
+
+  /* ================= DRAGON SHOP ================= */
+  if (cmd === "dragons") {
+    msg.reply(`
+🐉 **DRAGON SHOP**
+
+🔥 Fire Dragon — 5,000,000 Coins  
+❄ Ice Dragon — 6,000,000 Coins  
+🌪 Wind Dragon — 7,000,000 Coins  
+⚡ Lightning Dragon — 8,000,000 Coins  
+🌍 Earth Dragon — 10,000,000 Coins  
+
+Buy using: s buy dragon <element>
+`);
+  }
+
+  /* ================= BUY DRAGON ================= */
+  if (cmd === "buy") {
+    let type = args[0];
+    let name = args[1];
+
+    if (type === "dragon") {
+      const dragonPrices = {
+        fire: 5000000,
+        ice: 6000000,
+        wind: 7000000,
+        lightning: 8000000,
+        earth: 10000000
+      };
+
+      if (!dragonPrices[name]) return msg.reply("Invalid dragon name");
+
+      if (user.wallet < dragonPrices[name]) return msg.reply("Not enough coins");
+
+      user.wallet -= dragonPrices[name];
+      user.inventory.dragons.push(name.toUpperCase() + "_DRAGON");
+      save();
+
+      msg.reply(`🐉 You bought ${name.toUpperCase()}_DRAGON`);
+    }
+  }
+
+  /* ================= SELECT DRAGON ================= */
+  if (cmd === "set") {
+    let dragon = args[0].toUpperCase() + "_DRAGON";
+    if (!user.inventory.dragons.includes(dragon)) return msg.reply("You don't own this dragon");
+
+    user.dragon = dragon;
+    save();
+    msg.reply(`🐉 Dragon set to ${dragon}`);
+  }
+
+  /* ================= FEED / LEVEL DRAGON ================= */
+  if (cmd === "feed") {
+    if (!user.dragon) return msg.reply("No dragon selected");
+    if (user.gems < 100) return msg.reply("You need 100 gems to feed");
+
+    user.gems -= 100;
+    if (!user.dragonsLevel) user.dragonsLevel = {};
+    if (!user.dragonsLevel[user.dragon]) user.dragonsLevel[user.dragon] = 1;
+    else user.dragonsLevel[user.dragon] += 1;
+
+    save();
+    msg.reply(`🐉 ${user.dragon} has leveled up to Level ${user.dragonsLevel[user.dragon]}`);
+  }
+
+  /* ================= WEAPONS / ARMOURS SHOP ================= */
+  if (cmd === "weapons") {
+    msg.reply(`
+⚔ **WEAPON SHOP**
+
+🔥 Fire Sword — 1,000,000  
+❄ Ice Spear — 1,000,000  
+🌪 Wind Katana — 1,000,000  
+⚡ Lightning Blade — 1,000,000
+`);
+  }
+
+  if (cmd === "armours") {
+    msg.reply(`
+🛡 **ARMOUR SHOP**
+
+🔥 Fire Armour — 500,000  
+❄ Ice Armour — 500,000  
+🌪 Wind Armour — 500,000  
+⚡ Lightning Armour — 500,000
+`);
+  }
+});
+client.on("messageCreate", async msg => {
+  if (msg.author.bot) return;
+  if (!msg.content.startsWith(prefix)) return;
+
+  const args = msg.content.slice(prefix.length).trim().split(/ +/);
+  const cmd = args.shift().toLowerCase();
+  let user = getUser(msg.author.id);
+
+  /* ================= SLOT MACHINE ================= */
+  if (cmd === "slot") {
+    let bet = args[0];
+    if (bet === "all") bet = user.wallet;
+    bet = parseInt(bet);
+    if (!bet || bet <= 0) return msg.reply("Enter a valid bet");
+    if (bet > 200000) bet = 200000;
+    if (bet > user.wallet) return msg.reply("Not enough coins");
+
+    user.wallet -= bet;
+    save();
+
+    let symbols = ["💎", "🥭", "🍉"];
+    let spinningMsg = await msg.reply("🎰 Spinning the slot...");
+
+    // Spin animation
+    let spinFrames = 6;
+    for (let i = 0; i < spinFrames; i++) {
+      let s1 = symbols[Math.floor(Math.random() * symbols.length)];
+      let s2 = symbols[Math.floor(Math.random() * symbols.length)];
+      let s3 = symbols[Math.floor(Math.random() * symbols.length)];
+      await spinningMsg.edit(`🎰 **Spinning...**\n| ${s1} | ${s2} | ${s3} |`);
+      await new Promise(r => setTimeout(r, 600));
+    }
+
+    // Final result
+    let finalS1 = symbols[Math.floor(Math.random() * symbols.length)];
+    let finalS2 = symbols[Math.floor(Math.random() * symbols.length)];
+    let finalS3 = symbols[Math.floor(Math.random() * symbols.length)];
+
+    let resultText = `🎰 **SLOT RESULT**\n| ${finalS1} | ${finalS2} | ${finalS3} |\n`;
+    let reward = 0;
+
+    if (finalS1 === finalS2 && finalS2 === finalS3) {
+      if (finalS1 === "💎") reward = bet * 3;
+      else if (finalS1 === "🥭") reward = bet * 2;
+      else reward = bet;
+      user.wallet += reward;
+      resultText += `✨ **YOU WON** ${reward} coins!`;
+    } else {
+      resultText += `💀 **YOU LOST** ${bet} coins!`;
+    }
+
+    save();
+    spinningMsg.edit(resultText);
+  }
+
+  /* ================= LEADERBOARDS ================= */
+  if (cmd === "lb") {
+    if (args[0] === "c") {
+      let sorted = Object.entries(users)
+        .sort((a, b) => (b[1].wallet + b[1].bank) - (a[1].wallet + a[1].bank))
+        .slice(0, 10);
+      let text = "🏆 **COINS LEADERBOARD**\n\n";
+      sorted.forEach((entry, i) => {
+        let id = entry[0];
+        let data = entry[1];
+        text += `${i + 1}. <@${id}> — Wallet: ${data.wallet}, Bank: ${data.bank}, Gems: ${data.gems}\n`;
+      });
+      msg.channel.send(text);
+    }
+
+    if (args[0] === "b") {
+      let sorted = Object.entries(users)
+        .sort((a, b) => b[1].wins - a[1].wins)
+        .slice(0, 10);
+      let text = "⚔ **BATTLE LEADERBOARD**\n\n";
+      sorted.forEach((entry, i) => {
+        let id = entry[0];
+        let data = entry[1];
+        text += `${i + 1}. <@${id}> — Wins: ${data.wins}, Loses: ${data.loses}\n`;
+      });
+      msg.channel.send(text);
+    }
+  }
+});
+
+/* ================= SAVE DATABASE ON EXIT ================= */
+process.on("exit", () => {
   save();
-}
-/* ================== LOGIN ================== */
+});
+process.on("SIGINT", () => {
+  save();
+  process.exit();
+});
+process.on("SIGTERM", () => {
+  save();
+  process.exit();
+});
+
+/* ================= LOGIN ================= */
 client.login(process.env.TOKEN);
