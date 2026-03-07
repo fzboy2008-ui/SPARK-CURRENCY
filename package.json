@@ -1,14 +1,14 @@
 {
   "name": "spark-bot",
   "version": "1.0.0",
-  "description": "Spark Bot - Economy, Dragon Battle, Shop, Profile & Admin System",
+  "description": "Spark Discord Bot - Economy, Dragon, Battle",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "discord.js": "^14.11.0",
+    "discord.js": "^14.14.0",
     "quick.db": "^9.0.0",
-    "dotenv": "^16.1.4"
+    "dotenv": "^16.0.3"
   }
 }
