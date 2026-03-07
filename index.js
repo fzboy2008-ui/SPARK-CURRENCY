@@ -11,8 +11,9 @@ const client = new Client({
     partials: [Partials.Channel]
 });
 
-const PREFIX = 's';
-const OWNER_ID = '1266728371719508062'; // fzboy786_01978
+// Prefixes: s, S, spark, Spark
+const PREFIXES = ['s', 'S', 'spark', 'Spark'];
+const OWNER_ID = '1266728371719508062';
 
 // --- Dragons ---
 const dragons = {
@@ -44,17 +45,21 @@ const armours = {
 // --- Utility Functions ---
 function getSelectedDragon(userId) { return db.get(`selectedDragon_${userId}`); }
 function getRank(xp) { return Math.floor(xp / 2500) + 1; }
-function getTotalCoins(userId) { return (db.get(`wallet_${userId}`)||0) + (db.get(`bank_${userId}`)||0); }
 
 // --- Message Handler ---
 client.on('messageCreate', async message => {
-    if (!message.content.startsWith(PREFIX) || message.author.bot) return;
-    const args = message.content.slice(PREFIX.length).trim().split(/ +/);
-    const cmd = args.shift().toLowerCase();
+    if(message.author.bot) return;
+
+    // Determine prefix
+    const prefixUsed = PREFIXES.find(p => message.content.toLowerCase().startsWith(p.toLowerCase()));
+    if(!prefixUsed) return;
+
+    const args = message.content.slice(prefixUsed.length).trim().split(/ +/);
+    const cmd = args.shift()?.toLowerCase();
     const userId = message.author.id;
 
-    // --- Channel Disabled Check ---
-    if(db.get(`disabled_${message.channel.id}`) && ![OWNER_ID].includes(userId)) return;
+    // Channel disabled check
+    if(db.get(`disabled_${message.channel.id}`) && userId !== OWNER_ID) return;
 
     // ----------------- DAILY -----------------
     if(cmd==='d'||cmd==='daily'){
@@ -169,84 +174,9 @@ client.on('messageCreate', async message => {
         return message.reply(`👤 ${message.author.username}\n🐉 Dragon: ${dragonDisplay}\n💼 Wallet: ${wallet}\n🏦 Bank: ${bank}\n💎 Gems: ${gems}\n🏆 Rank: #${rank} | XP: ${xp}`);
     }
 
-    // ----------------- RANK -----------------
-    if(cmd==='rank'){
-        const xp=db.get(`xp_${userId}`)||0, rank=getRank(xp), nextXP=rank*2500, remXP=nextXP-xp;
-        return message.reply(`🏆 Rank: #${rank}\n⭐ XP: ${xp}/${nextXP} (Next rank in ${remXP} XP)`);
-    }
-
-    // ----------------- SHOP -----------------
-    if(cmd==='shop'){
-        let shopText=`🛒 SPARK BOT SHOP\n\n🐉 DRAGONS\n`;
-        for(let d in dragons) shopText+=`${dragons[d].emoji} ${dragons[d].name} | Price: ${dragons[d].price} 💰\n`;
-        shopText+=`\n⚔️ WEAPONS\n`; for(let w in weapons) shopText+=`${weapons[w].element} ${w} | Attack: ${weapons[w].attack} | Price: ${weapons[w].price} 💰\n`;
-        shopText+=`\n🛡️ ARMOURS\n`; for(let a in armours) shopText+=`${armours[a].element} ${a} | Defence: ${armours[a].defence} | Price: ${armours[a].price} 💰\n`;
-        shopText+=`\n💡 Buy an item using: s buy <item name>\n`;
-        return message.reply(shopText);
-    }
-
-    // ----------------- BUY -----------------
-    if(cmd==='buy'){
-        const itemName=args.join(' ').toLowerCase(); let price=0;
-        if(dragons[itemName]) price=dragons[itemName].price;
-        else if(weapons[itemName]) price=weapons[itemName].price;
-        else if(armours[itemName]) price=armours[itemName].price;
-        else return message.reply("❌ Item not found!");
-        const wallet=db.get(`wallet_${userId}`)||0; if(wallet<price) return message.reply("❌ Not enough coins!");
-        db.subtract(`wallet_${userId}`,price); db.push(`inventory_${userId}`,itemName);
-        return message.reply(`✅ Purchased ${itemName} for ${price} 💰`);
-    }
-
     // ----------------- HELP -----------------
     if(cmd==='help'){
-        const helpText = `
-📜 **SPARK BOT COMMANDS**
-
-**Economy:** s d/daily, s bal/balance, s d/deposit <amount>, s w/withdraw <amount>, s g/give @user <amount>
-**Games:** s cf/coinflip <bet>, s s/slot <bet>
-**Dragon:** s set <dragon>, s feed, s challenge @user, s accept
-**Profile/Rank:** s profile, s rank, s lb balance, s lb battles
-**Shop:** s shop, s buy <item>
-**Admin:** s disable, s enable
-**Owner:** s setmoney <name> <amount>, s setgems <name> <amount>, s admin add/remove/list, s resetall
-`;
-        return message.reply(helpText);
-    }
-
-    // ----------------- SERVER ADMIN -----------------
-    if(cmd==='disable'){
-        if(!message.member.permissions.has('Administrator')) return message.reply("❌ Admin only!");
-        db.set(`disabled_${message.channel.id}`,true);
-        return message.reply("✅ Bot disabled in this channel.");
-    }
-    if(cmd==='enable'){
-        if(!message.member.permissions.has('Administrator')) return message.reply("❌ Admin only!");
-        db.delete(`disabled_${message.channel.id}`);
-        return message.reply("✅ Bot enabled in this channel.");
-    }
-
-    // ----------------- OWNER COMMANDS -----------------
-    if(['setmoney','setgems'].includes(cmd)){
-        if(userId!==OWNER_ID) return message.reply("❌ Only owner");
-        const target=message.mentions.users.first(); const amount=parseInt(args[1]);
-        if(!target||isNaN(amount)) return message.reply("❌ Invalid");
-        if(cmd==='setmoney'){ db.set(`wallet_${target.id}`,amount); return message.reply(`💰 Set ${target.username}'s coins to ${amount}`);}
-        if(cmd==='setgems'){ db.set(`gems_${target.id}`,amount); return message.reply(`💎 Set ${target.username}'s gems to ${amount}`);}
-    }
-
-    if(cmd==='admin'){
-        if(userId!==OWNER_ID) return message.reply("❌ Only owner");
-        const action=args[0]; const target=message.mentions.users.first();
-        let admins=db.get('botAdmins')||[];
-        if(action==='add'){ if(!target) return message.reply("❌ Mention"); if(admins.includes(target.id)) return message.reply("❌ Already admin"); admins.push(target.id); db.set('botAdmins',admins); return message.reply(`✅ ${target.username} added as bot admin`);}
-        if(action==='remove'){ if(!target) return message.reply("❌ Mention"); admins=admins.filter(id=>id!==target.id); db.set('botAdmins',admins); return message.reply(`✅ ${target.username} removed from bot admins`);}
-        if(action==='list'){ if(admins.length===0) return message.reply("❌ No admins"); return message.reply(`👑 Bot Admins:\n${admins.map(id=>`<@${id}>`).join('\n')}`);}
-    }
-
-    if(cmd==='resetall'){
-        if(userId!==OWNER_ID) return message.reply("❌ Only owner");
-        db.deleteAll();
-        return message.reply("⚠️ All bot data reset!");
+        return message.reply(`📜 SPARK BOT COMMANDS\n- s/S/spark/Spark daily\n- s/S/spark/Spark bal\n- s/S/spark/Spark deposit <amount>\n- s/S/spark/Spark withdraw <amount>\n- s/S/spark/Spark give @user <amount>\n- s/S/spark/Spark cf <bet>\n- s/S/spark/Spark slot <bet>\n- s/S/spark/Spark set <dragon>\n- s/S/spark/Spark feed\n- s/S/spark/Spark profile\n- s/S/spark/Spark shop\n- s/S/spark/Spark buy <item>\n- Admin/Owner commands included`);
     }
 
 });
