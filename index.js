@@ -11,7 +11,7 @@ const client = new Client({
     partials: [Partials.Channel]
 });
 
-// Prefixes: s, S, spark, Spark
+// Prefixes
 const PREFIXES = ['s', 'S', 'spark', 'Spark'];
 const OWNER_ID = '1266728371719508062';
 
@@ -42,15 +42,14 @@ const armours = {
     "zephyr cloak": { element: "Wind", defence: 90, price: 850000 }
 };
 
-// --- Utility Functions ---
-function getSelectedDragon(userId) { return db.get(`selectedDragon_${userId}`); }
-function getRank(xp) { return Math.floor(xp / 2500) + 1; }
+// --- Utils ---
+function getSelectedDragon(userId){ return db.get(`selectedDragon_${userId}`); }
+function getRank(xp){ return Math.floor(xp/2500)+1; }
 
 // --- Message Handler ---
 client.on('messageCreate', async message => {
     if(message.author.bot) return;
 
-    // Determine prefix
     const prefixUsed = PREFIXES.find(p => message.content.toLowerCase().startsWith(p.toLowerCase()));
     if(!prefixUsed) return;
 
@@ -179,6 +178,8 @@ client.on('messageCreate', async message => {
         return message.reply(`📜 SPARK BOT COMMANDS\n- s/S/spark/Spark daily\n- s/S/spark/Spark bal\n- s/S/spark/Spark deposit <amount>\n- s/S/spark/Spark withdraw <amount>\n- s/S/spark/Spark give @user <amount>\n- s/S/spark/Spark cf <bet>\n- s/S/spark/Spark slot <bet>\n- s/S/spark/Spark set <dragon>\n- s/S/spark/Spark feed\n- s/S/spark/Spark profile\n- s/S/spark/Spark shop\n- s/S/spark/Spark buy <item>\n- Admin/Owner commands included`);
     }
 
+    // ----------------- ADMIN COMMANDS PLACEHOLDER -----------------
+    // s disable / s enable / owner commands
 });
 
 client.once('ready',()=>{console.log(`${client.user.username} is online!`);});
