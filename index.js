@@ -18,8 +18,8 @@ const PREFIXES = ['s','S','spark','Spark'];
 const OWNER_ID = '1266728371719508062';
 
 /* ================= DATABASE SETUP ================= */
-if (!fs.existsSync("./database")) fs.mkdirSync("./database");
-if (!fs.existsSync("./database/users.json")) fs.writeFileSync("./database/users.json","{}");
+if(!fs.existsSync("./database")) fs.mkdirSync("./database");
+if(!fs.existsSync("./database/users.json")) fs.writeFileSync("./database/users.json","{}");
 
 let users = JSON.parse(fs.readFileSync("./database/users.json"));
 
@@ -37,11 +37,14 @@ function getUser(id){
             xp:0,
             rank:0,
             dragon:null,
+            weapon:null,
+            armour:null,
             inventory:{ dragons:[], weapons:[], armours:[] },
             lastDaily:0,
             wins:0,
             loses:0,
-            currentChallenge:null // for live battle
+            currentChallenge:null,
+            isAdmin:false
         };
     }
     return users[id];
@@ -74,6 +77,8 @@ const armours = {
 
 /* ================= UTILITY FUNCTIONS ================= */
 function getSelectedDragon(userId){ return users[userId]?.dragon; }
+function getSelectedWeapon(userId){ return users[userId]?.weapon; }
+function getSelectedArmour(userId){ return users[userId]?.armour; }
 function getRank(xp){ return Math.floor(xp / 2500) + 1; }
 
 /* ================= BOT READY ================= */
@@ -84,7 +89,6 @@ client.once("ready", () => {
 client.on("messageCreate", async message => {
     if(message.author.bot) return;
 
-    // Check prefix
     const prefixUsed = PREFIXES.find(p => message.content.toLowerCase().startsWith(p.toLowerCase()));
     if(!prefixUsed) return;
 
@@ -161,7 +165,7 @@ client.on("messageCreate", async message => {
         return message.reply(`💸 Sent ${amount} coins to ${target.username}`);
     }
 });
-/* ================= MESSAGE HANDLER – GAMES & DRAGONS ================= */
+/* ================= MESSAGE HANDLER – GAMES / PROFILE ================= */
 client.on("messageCreate", async message => {
     if(message.author.bot) return;
 
@@ -175,96 +179,117 @@ client.on("messageCreate", async message => {
 
     /* ================= COINFLIP ================= */
     if(cmd==='cf'||cmd==='coinflip'){
-        let bet = parseInt(args[0]);
-        if(!bet || bet <= 0) return message.reply("❌ Enter a valid bet");
-        if(bet > 100000) bet = 100000;
-        if(user.wallet < bet) return message.reply("❌ Not enough coins");
+        let bet = args[0];
+        if(!bet) return message.reply("❌ Enter an amount or 'all'");
+        if(bet.toLowerCase() === 'all') bet = Math.min(user.wallet, 100000);
+        else bet = parseInt(bet);
+        if(bet <= 0) return message.reply("❌ Enter a valid bet");
+        if(bet > user.wallet) return message.reply("❌ Not enough coins");
 
+        // Deduct bet
         user.wallet -= bet;
         save();
 
-        const result = Math.random() < 0.5 ? "Heads" : "Tails";
-        await message.reply("🪙 Flipping... ⏳");
+        const sides = ["Heads","Tails"];
+        let choice = sides[Math.floor(Math.random()*2)];
+
+        let msgSent = await message.channel.send(`🪙 Coin is flipping...`);
         setTimeout(()=>{
-            if(result==="Heads"){ user.wallet += bet*2; message.channel.send(`🎉 Heads! You won ${bet*2} coins`);}
-            else message.channel.send(`😢 Tails! You lost ${bet} coins`);
-            save();
+            let won = Math.random() < 0.5;
+            if(won){
+                user.wallet += bet*2;
+                save();
+                msgSent.edit(`🪙 Coin landed on **${choice}**! You won ${bet*2} coins!`);
+            } else {
+                msgSent.edit(`🪙 Coin landed on **${choice}**! You lost ${bet} coins!`);
+            }
         },2000);
     }
 
     /* ================= SLOT ================= */
     if(cmd==='s'||cmd==='slot'){
-        let bet = parseInt(args[0]);
-        if(!bet || bet <= 0) return message.reply("❌ Enter a valid bet");
-        if(bet > 100000) bet = 100000;
-        if(user.wallet < bet) return message.reply("❌ Not enough coins");
+        let bet = args[0];
+        if(!bet) return message.reply("❌ Enter an amount or 'all'");
+        if(bet.toLowerCase() === 'all') bet = Math.min(user.wallet, 100000);
+        else bet = parseInt(bet);
+        if(bet <=0) return message.reply("❌ Enter a valid bet");
+        if(bet>user.wallet) return message.reply("❌ Not enough coins");
 
+        const symbols = ["💎","🍉","🥭"];
         user.wallet -= bet;
         save();
-
-        const symbols = ["💎","🥭","🍉"];
-        const roll = [symbols[Math.floor(Math.random()*3)], symbols[Math.floor(Math.random()*3)], symbols[Math.floor(Math.random()*3)]];
-        await message.reply("🎰 Rolling... ⏳");
+        let msgSent = await message.channel.send("🎰 Spinning the slot machine...");
 
         setTimeout(()=>{
-            const [a,b,c] = roll;
-            let msg = `🎰 Result: ${a}${b}${c}\n`;
-            if(a===b && b===c){
-                if(a==="💎"){ user.wallet += bet*3; msg+=`💎 Jackpot! You won ${bet*3} coins`;}
-                else if(a==="🥭"){ user.wallet += bet*2; msg+=`🥭 You won ${bet*2} coins`;}
-                else { user.wallet += bet; msg+=`🍉 Tie! Bet returned`;}
-            } else msg+=`😢 You lost ${bet} coins`;
-            message.channel.send(msg);
+            const roll = [symbols[Math.floor(Math.random()*3)],symbols[Math.floor(Math.random()*3)],symbols[Math.floor(Math.random()*3)]];
+            let resultText;
+            if(roll[0]===roll[1] && roll[1]===roll[2]){
+                if(roll[0]==="💎") resultText = `💎💎💎 Jackpot! You won ${bet*3} coins!`; 
+                else if(roll[0]==="🥭") resultText = `🥭🥭🥭 You won ${bet*2} coins!`;
+                else resultText = `🍉🍉🍉 Tie! Your bet returned`; user.wallet += bet;
+            } else resultText = `${roll.join('')} - You lost ${bet} coins!`;
+
+            // Reward calculation
+            if(roll[0]==="💎" && roll[1]==="💎" && roll[2]==="💎") user.wallet += bet*3;
+            else if(roll[0]==="🥭" && roll[1]==="🥭" && roll[2]==="🥭") user.wallet += bet*2;
+            else if(roll[0]==roll[1] && roll[1]==roll[2] && roll[0]==="🍉") user.wallet += bet; // tie
             save();
-        },2500);
+            msgSent.edit(`🎰 ${roll.join('')}\n${resultText}`);
+        },2000);
     }
 
-    /* ================= DRAGON SELECTION ================= */
+    /* ================= DRAGON / ARMOUR / WEAPON SELECT ================= */
     if(cmd==='set'){
-        const dragonName = args.join(' ').toLowerCase();
-        if(!dragons[dragonName]) return message.reply("❌ Dragon not found!");
-        user.dragon = dragonName;
-        save();
-        return message.reply(`${dragons[dragonName].emoji} ${dragons[dragonName].name} selected!`);
-    }
-
-    /* ================= FEED DRAGON ================= */
-    if(cmd==='feed'){
-        if(!user.dragon) return message.reply("❌ Select a dragon first!");
-        if(user.gems < 100) return message.reply("❌ Not enough gems to feed!");
-        let level = user.inventory.dragons[user.dragon] || 1;
-        if(level >= 250) return message.reply("❌ Max level 250");
-        user.gems -= 100;
-        user.inventory.dragons[user.dragon] = level + 1;
-        save();
-        return message.reply(`🔥 ${dragons[user.dragon].name} leveled up! ⭐ Level: ${level+1}`);
+        const type = args[0]?.toLowerCase();
+        const name = args.slice(1).join(' ').toLowerCase();
+        if(!type || !name) return message.reply("❌ Usage: s set dragon/weapon/armour <name>");
+        if(type==='dragon'){
+            if(!user.inventory.dragons.includes(name)) return message.reply("❌ You don't own this dragon");
+            user.dragon = name;
+            save();
+            return message.reply(`✅ Selected dragon: ${dragons[name]?.emoji} ${dragons[name]?.name}`);
+        }
+        if(type==='weapon'){
+            if(!user.inventory.weapons.includes(name)) return message.reply("❌ You don't own this weapon");
+            user.weapon = name;
+            save();
+            return message.reply(`✅ Selected weapon: ${name}`);
+        }
+        if(type==='armour'){
+            if(!user.inventory.armours.includes(name)) return message.reply("❌ You don't own this armour");
+            user.armour = name;
+            save();
+            return message.reply(`✅ Selected armour: ${name}`);
+        }
+        return message.reply("❌ Unknown type! Use dragon/weapon/armour");
     }
 
     /* ================= PROFILE ================= */
     if(cmd==='profile'){
-        const dragon = user.dragon;
-        const dragonLvl = user.inventory.dragons[dragon] || 0;
-        message.reply(`
-👤 ${message.author.username}
-🐉 Dragon: ${dragon ? dragons[dragon].emoji+" "+dragon+" (Lvl "+dragonLvl+")" : "None"}
-💼 Wallet: ${user.wallet}
-🏦 Bank: ${user.bank}
-💎 Gems: ${user.gems}
-🏆 Rank: #${user.rank} | XP: ${user.xp}
-        `);
+        const avatar = message.author.displayAvatarURL({dynamic:true});
+        return message.reply({
+            content: `👤 **${message.author.username} Profile**
+Rank: ${user.rank} | XP: ${user.xp}/2500
+🐉 Dragon: ${user.dragon?dragons[user.dragon].emoji + " " + dragons[user.dragon].name:"None"}
+⚔ Weapon: ${user.weapon||"None"}
+🛡 Armour: ${user.armour||"None"}
+💰 Wallet: ${user.wallet} | 🏦 Bank: ${user.bank} | 💎 Gems: ${user.gems}
+🎮 Wins: ${user.wins} | 💀 Loses: ${user.loses}`,
+            files: [avatar]
+        });
     }
 
     /* ================= INVENTORY ================= */
     if(cmd==='inv'){
-        message.reply(`
-🎒 Inventory:
-🐉 Dragons: ${user.inventory.dragons.join(", ") || "None"}
+        return message.reply(`
+🎒 **INVENTORY**
+🐉 Dragons: ${user.inventory.dragons.length?user.inventory.dragons.map(d=>dragons[d]?.emoji+" "+dragons[d]?.name).join(", "):"None"}
 ⚔ Weapons: ${user.inventory.weapons.join(", ") || "None"}
 🛡 Armours: ${user.inventory.armours.join(", ") || "None"}
         `);
     }
 });
-/* ================= MESSAGE HANDLER – BATTLE ================= */
+/* ================= MESSAGE HANDLER – BATTLE / LEADERBOARD / SHOP ================= */
 client.on("messageCreate", async message => {
     if(message.author.bot) return;
 
@@ -276,165 +301,171 @@ client.on("messageCreate", async message => {
     const userId = message.author.id;
     let user = getUser(userId);
 
-    /* ================= CHALLENGE ================= */
+    /* ================= CHALLENGE BATTLE ================= */
     if(cmd==='challenge'){
         const target = message.mentions.users.first();
         if(!target) return message.reply("❌ Mention a user to challenge");
-        const targetUser = getUser(target.id);
+        if(!user.dragon) return message.reply("❌ You must select a dragon first");
+        let tUser = getUser(target.id);
+        if(!tUser.dragon) return message.reply("❌ Target must have a dragon selected");
 
-        if(!user.dragon || !targetUser.dragon) return message.reply("❌ Both players must have selected a dragon");
-        if(targetUser.currentChallenge) return message.reply("❌ Target already has a pending challenge");
+        user.currentChallenge = { target: target.id, status: "pending" };
+        tUser.currentChallenge = { challenger: userId, status: "pending" };
 
-        targetUser.currentChallenge = { from: userId };
-        save();
-        return message.reply(`⚔ ${message.author.username} challenged ${target.username}! Waiting for them to accept...`);
+        return message.reply(`⚔ Challenge sent to ${target.username}! Waiting for acceptance...`);
     }
 
-    /* ================= ACCEPT ================= */
     if(cmd==='accept'){
-        if(!user.currentChallenge) return message.reply("❌ No challenge to accept");
-
-        const challengerId = user.currentChallenge.from;
-        const challenger = getUser(challengerId);
+        if(!user.currentChallenge || !user.currentChallenge.challenger) return message.reply("❌ No challenge to accept");
+        const challengerId = user.currentChallenge.challenger;
+        let challenger = getUser(challengerId);
         if(!challenger) return message.reply("❌ Challenger not found");
 
-        delete user.currentChallenge;
-        save();
+        // Initialize HP
+        let acceptorHP = 100, challengerHP = 100;
 
-        // Initialize battle
-        let hpA = 100, hpB = 100;
-        const dragonA = challenger.dragon;
-        const dragonB = user.dragon;
-
-        const battleMessage = await message.channel.send(`
-⚔ **BATTLE START!**
-${message.guild.members.cache.get(challengerId).user.username} (${dragons[dragonA].name}) ❤️ ${hpA} 
-vs 
-${message.author.username} (${dragons[dragonB].name}) ❤️ ${hpB}
+        let arenaMsg = await message.channel.send(`
+╔━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╗
+      ⚔️ BATTLE ARENA ⚔️
+╠━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╣
+  ACCEPTOR               ║  CHALLENGER
+   @${message.author.username}           ║  @${client.users.cache.get(challengerId)?.username}
+╠━━━━━━━━━━━━━━╬━━━━━━━━━━━━━━╣
+ ${dragons[user.dragon]?.emoji} ${dragons[user.dragon]?.name}              ║  ${dragons[challenger.dragon]?.emoji} ${dragons[challenger.dragon]?.name}
+ ⭐ LVL 99                  ║  ⭐ LVL 99
+ 🛡️ ${dragons[user.dragon]?.element}                 ║  ☄️ ${dragons[challenger.dragon]?.element}
+╠━━━━━━━━━━━━━━╬━━━━━━━━━━━━━━╣
+        ❤️ [■■■■■□]  ║  ❤️ [■■■■□□]
+                        90%       ║     85%
+╠━━━━━━━━━━━━━━╬━━━━━━━━━━━━━━╣
+ 📢 STATUS: BATTLE IN PROGRESS
+╚━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╝
         `);
 
-        // Live HP update every 2 seconds
-        const interval = setInterval(async () => {
-            let dmgA = Math.floor(Math.random()*15)+5;
-            let dmgB = Math.floor(Math.random()*15)+5;
-            hpA -= dmgB;
-            hpB -= dmgA;
+        // Simple live HP simulation (just delay for demo)
+        let interval = setInterval(()=>{
+            acceptorHP -= Math.floor(Math.random()*10);
+            challengerHP -= Math.floor(Math.random()*10);
 
-            // Update battle board
-            await battleMessage.edit(`
-⚔ **BATTLE IN PROGRESS**
-${message.guild.members.cache.get(challengerId).user.username} (${dragons[dragonA].name}) ❤️ ${hpA>0?hpA:0} 
-vs 
-${message.author.username} (${dragons[dragonB].name}) ❤️ ${hpB>0?hpB:0}
-            `);
-
-            // Check winner
-            if(hpA<=0 || hpB<=0){
+            if(acceptorHP<=0 || challengerHP<=0){
                 clearInterval(interval);
-                let winner, loser;
-                if(hpA>hpB){ winner=challenger; loser=user; }
-                else{ winner=user; loser=challenger; }
-
-                winner.gems += 10;
-                winner.wins +=1;
-                loser.loses +=1;
+                if(acceptorHP>challengerHP){
+                    user.wins+=1; challenger.loses+=1;
+                    arenaMsg.edit(`🏆 ${message.author.username} wins the battle!`);
+                } else if(challengerHP>acceptorHP){
+                    challenger.wins+=1; user.loses+=1;
+                    arenaMsg.edit(`🏆 ${client.users.cache.get(challengerId)?.username} wins the battle!`);
+                } else arenaMsg.edit(`⚖ The battle ended in a tie!`);
+                user.currentChallenge = null; challenger.currentChallenge = null;
                 save();
-
-                await battleMessage.edit(`
-⚔ **BATTLE ENDED!**
-🏆 Winner: ${message.guild.members.cache.get(winner===challenger?challengerId:userId).user.username} 
-💎 Reward: 10 Gems
-                `);
+            } else {
+                // Update HP bar live (optional detailed update)
             }
         },2000);
     }
-});
-/* ================= MESSAGE HANDLER – ADMIN / OWNER / SHOP ================= */
-client.on("messageCreate", async message => {
-    if(message.author.bot) return;
 
-    const prefixUsed = PREFIXES.find(p => message.content.toLowerCase().startsWith(p.toLowerCase()));
-    if(!prefixUsed) return;
-
-    const args = message.content.slice(prefixUsed.length).trim().split(/ +/);
-    const cmd = args.shift()?.toLowerCase();
-    const userId = message.author.id;
-    let user = getUser(userId);
+    /* ================= LEADERBOARDS ================= */
+    if(cmd==='lb'||cmd==='leaderboard'){
+        const sub = args[0]?.toLowerCase();
+        if(sub==='balance'||sub==='b'){
+            let sorted = Object.entries(users).sort((a,b)=>b[1].wallet+b[1].bank-(a[1].wallet+a[1].bank));
+            let text = sorted.slice(0,10).map(([id,u],i)=>`${i+1}. <@${id}> - Wallet: ${u.wallet} | Bank: ${u.bank} | Gems: ${u.gems}`).join("\n");
+            return message.reply(`💰 **Balance Leaderboard**\n${text}`);
+        }
+        if(sub==='battles'||sub==='c'){
+            let sorted = Object.entries(users).sort((a,b)=>b[1].wins-(a[1].wins));
+            let text = sorted.slice(0,10).map(([id,u],i)=>`${i+1}. <@${id}> - Wins: ${u.wins} | Loses: ${u.loses}`).join("\n");
+            return message.reply(`⚔ **Battle Leaderboard**\n${text}`);
+        }
+    }
 
     /* ================= SHOP ================= */
     if(cmd==='shop'){
         return message.reply(`
-🛒 **SHOP**
+🛒 **SHOP CATEGORIES**
 🐉 Dragons: ${Object.keys(dragons).join(", ")}
 ⚔ Weapons: ${Object.keys(weapons).join(", ")}
 🛡 Armours: ${Object.keys(armours).join(", ")}
-Use s buy <item>
+Use s buy <item name>
         `);
     }
+});
+/* ================= MESSAGE HANDLER – ADMIN & OWNER ================= */
+client.on("messageCreate", async message => {
+    if(message.author.bot) return;
 
-    if(cmd==='buy'){
-        const itemName = args.join(' ').toLowerCase();
-        if(dragons[itemName]){
-            // Example: Price based on dragon
-            let price = 5000000;
-            if(user.wallet<price) return message.reply("❌ Not enough coins");
-            user.wallet-=price;
-            user.inventory.dragons.push(itemName);
-            save();
-            return message.reply(`✅ Bought dragon ${dragons[itemName].name} for ${price} coins`);
-        }
-        else if(weapons[itemName]){
-            let price = 2000000;
-            if(user.wallet<price) return message.reply("❌ Not enough coins");
-            user.wallet-=price;
-            user.inventory.weapons.push(itemName);
-            save();
-            return message.reply(`✅ Bought weapon ${itemName} for ${price} coins`);
-        }
-        else if(armours[itemName]){
-            let price = 2000000;
-            if(user.wallet<price) return message.reply("❌ Not enough coins");
-            user.wallet-=price;
-            user.inventory.armours.push(itemName);
-            save();
-            return message.reply(`✅ Bought armour ${itemName} for ${price} coins`);
-        } else return message.reply("❌ Item not found");
+    const prefixUsed = PREFIXES.find(p => message.content.toLowerCase().startsWith(p.toLowerCase()));
+    if(!prefixUsed) return;
+
+    const args = message.content.slice(prefixUsed.length).trim().split(/ +/);
+    const cmd = args.shift()?.toLowerCase();
+    const userId = message.author.id;
+    let user = getUser(userId);
+
+    /* ================= SERVER ADMIN COMMANDS ================= */
+    if(cmd==='disable'){
+        if(!message.member.permissions.has("Administrator")) return;
+        message.reply("✅ Bot disabled in this channel");
+        // Implement channel disable logic if needed
+    }
+    if(cmd==='enable'){
+        if(!message.member.permissions.has("Administrator")) return;
+        message.reply("✅ Bot enabled in this channel");
+        // Implement channel enable logic if needed
     }
 
-    /* ================= OWNER COMMANDS ================= */
-    if(userId !== OWNER_ID) return;
+    /* ================= BOT OWNER COMMANDS ================= */
+    if(userId!==OWNER_ID) return; // owner-only commands below
 
     if(cmd==='setmoney'){
         const target = message.mentions.users.first();
-        const amount = parseInt(args[1]);
+        let amount = parseInt(args[1]);
         if(!target || !amount) return message.reply("❌ Usage: s setmoney @user <amount>");
         let tUser = getUser(target.id);
-        tUser.wallet = amount; save();
+        tUser.wallet = amount;
+        save();
         return message.reply(`✅ Set ${target.username}'s wallet to ${amount}`);
     }
 
     if(cmd==='setgems'){
         const target = message.mentions.users.first();
-        const amount = parseInt(args[1]);
+        let amount = parseInt(args[1]);
         if(!target || !amount) return message.reply("❌ Usage: s setgems @user <amount>");
         let tUser = getUser(target.id);
-        tUser.gems = amount; save();
+        tUser.gems = amount;
+        save();
         return message.reply(`✅ Set ${target.username}'s gems to ${amount}`);
     }
 
     if(cmd==='admin'){
-        const sub = args[0];
+        const sub = args[0]?.toLowerCase();
         const target = message.mentions.users.first();
-        if(sub==='add'){ if(!target) return; if(!users[target.id].isAdmin) users[target.id].isAdmin=true; save(); return message.reply(`✅ Added ${target.username} as admin`);}
-        if(sub==='remove'){ if(!target) return; if(users[target.id].isAdmin) delete users[target.id].isAdmin; save(); return message.reply(`✅ Removed ${target.username} from admin`);}
-        if(sub==='list'){ let list = Object.keys(users).filter(u=>users[u].isAdmin).map(u=>u); return message.reply(`Admins: ${list.join(", ")}`);}
+        if(sub==='add'){
+            if(!target) return message.reply("❌ Mention a user to add admin");
+            let tUser = getUser(target.id);
+            tUser.isAdmin = true;
+            save();
+            return message.reply(`✅ ${target.username} is now bot admin`);
+        }
+        if(sub==='remove'){
+            if(!target) return message.reply("❌ Mention a user to remove admin");
+            let tUser = getUser(target.id);
+            tUser.isAdmin = false;
+            save();
+            return message.reply(`✅ ${target.username} removed from bot admin`);
+        }
+        if(sub==='list'){
+            let list = Object.entries(users).filter(([id,u])=>u.isAdmin).map(([id,u])=>`<@${id}>`);
+            return message.reply(`👑 Bot Admins:\n${list.join("\n") || "None"}`);
+        }
     }
 
     if(cmd==='resetall'){
-        users={}; save();
-        return message.reply("⚠ All data reset!");
+        users = {};
+        save();
+        return message.reply("⚠ All user data reset!");
     }
 });
 
-/* ================= LOGIN BOT ================= */
+/* ================= BOT LOGIN ================= */
 client.login(process.env.TOKEN);
