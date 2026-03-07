@@ -1,16 +1,19 @@
 {
   "name": "spark-bot",
   "version": "1.0.0",
-  "description": "All-in-one Discord bot with economy, dragons, battles, games, and shop system.",
+  "description": "All-in-one Spark Discord Bot (Economy, Games, Battle, Profile, Shop, Leaderboards)",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
-  "keywords": ["discord","bot","economy","dragon","games","battle"],
   "author": "FZBOY",
   "license": "MIT",
   "dependencies": {
     "discord.js": "^14.15.0",
-    "dotenv": "^16.3.1"
+    "dotenv": "^16.3.1",
+    "fs-extra": "^11.1.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
