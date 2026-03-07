@@ -1,607 +1,957 @@
-/* ================= IMPORTS ================= */
-const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
-const fs = require('fs');
-require('dotenv').config();
+// ==============================
+// SPARK BOT - ALL IN ONE CODE
+// PART 1
+// ==============================
 
-/* ================= CLIENT SETUP ================= */
+const { Client, GatewayIntentBits, EmbedBuilder } = require("discord.js")
+const fs = require("fs")
+
 const client = new Client({
-    intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildMembers
-    ]
-});
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
+  ]
+})
 
-/* ================= PREFIXES & OWNER ================= */
-const PREFIXES = ["s ", "S ", "spark ", "Spark "];
-const OWNER_ID = "1266728371719508062"; // fzboy786_01978
+// ==============================
+// PREFIX
+// ==============================
 
-/* ================= DATABASE ================= */
-if (!fs.existsSync("./database")) fs.mkdirSync("./database");
-if (!fs.existsSync("./database/users.json")) fs.writeFileSync("./database/users.json", "{}");
+const prefixes = ["s ", "S ", "spark ", "Spark "]
 
-let users = JSON.parse(fs.readFileSync("./database/users.json"));
+// ==============================
+// DATABASE FILES
+// ==============================
 
-function save() {
-    fs.writeFileSync("./database/users.json", JSON.stringify(users, null, 2));
+if (!fs.existsSync("./data")) {
+  fs.mkdirSync("./data")
 }
 
-function getUser(id){
-    if(!users[id]){
-        users[id] = {
-            wallet:0,
-            bank:0,
-            gems:0,
-            xp:0,
-            rank:0,
-            dragon:null,
-            weapon:null,
-            armour:null,
-            inventory:{
-                dragons:[],
-                weapons:[],
-                armours:[]
-            },
-            lastDaily:0,
-            wins:0,
-            loses:0,
-            isAdmin:false,
-            currentChallenge:null
-        };
+if (!fs.existsSync("./data/users.json")) {
+  fs.writeFileSync("./data/users.json", JSON.stringify({}))
+}
+
+if (!fs.existsSync("./data/guilds.json")) {
+  fs.writeFileSync("./data/guilds.json", JSON.stringify({}))
+}
+
+// ==============================
+// LOAD DATABASE
+// ==============================
+
+let users = JSON.parse(fs.readFileSync("./data/users.json"))
+
+function saveUsers() {
+  fs.writeFileSync("./data/users.json", JSON.stringify(users, null, 2))
+}
+
+// ==============================
+// CREATE USER DATA
+// ==============================
+
+function createUser(id) {
+
+  if (!users[id]) {
+
+    users[id] = {
+
+      coins: 1000,
+      gems: 0,
+
+      bank: 0,
+
+      xp: 0,
+      level: 1,
+
+      wins: 0,
+      losses: 0,
+
+      lastDaily: 0,
+
+      inventory: []
+
     }
-    return users[id];
+
+    saveUsers()
+  }
+
 }
 
-/* ================= DRAGONS / WEAPONS / ARMOURS ================= */
-const dragons = {
-    grog: {name:"Grog", emoji:"🪨", element:"Earth", basePower:50},
-    phoenix: {name:"Phoenix", emoji:"🔥", element:"Fire", basePower:60},
-    triton: {name:"Triton", emoji:"🌊", element:"Water", basePower:55},
-    rex: {name:"Rex", emoji:"⚡", element:"Lightning", basePower:70},
-    zephyr: {name:"Zephyr", emoji:"🌪️", element:"Wind", basePower:65}
-};
+// ==============================
+// XP SYSTEM
+// ==============================
 
-const weapons = {
-    "flame sword": {attack:15},
-    "thunder blade": {attack:20},
-    "aqua spear": {attack:17},
-    "stone hammer": {attack:22},
-    "wind dagger": {attack:12}
-};
+function addXP(id, amount) {
 
-const armours = {
-    "dragon plate": {defense:15},
-    "thunder guard": {defense:20},
-    "aqua shield": {defense:17},
-    "earth armor": {defense:22},
-    "zephyr cloak": {defense:12}
-};
+  createUser(id)
 
-/* ================= BOT READY ================= */
+  users[id].xp += amount
+
+  let needed = users[id].level * 100
+
+  if (users[id].xp >= needed) {
+
+    users[id].xp = 0
+    users[id].level += 1
+
+  }
+
+  saveUsers()
+
+}
+
+// ==============================
+// HP BAR FUNCTION
+// ==============================
+
+function hpBar(current, max) {
+
+  let percent = current / max
+
+  let bars = Math.round(percent * 6)
+
+  let full = "■".repeat(bars)
+  let empty = "□".repeat(6 - bars)
+
+  return `[${full}${empty}] ${Math.floor(percent * 100)}%`
+
+}
+
+// ==============================
+// BOT READY
+// ==============================
+
 client.once("ready", () => {
-    console.log(`⚡ Spark Bot Online as ${client.user.tag}`);
-});
 
-/* ================= XP & RANK SYSTEM ================= */
+  console.log(`⚡ Spark Bot Online: ${client.user.tag}`)
+
+})
+
+// ==============================
+// MESSAGE HANDLER
+// ==============================
+
 client.on("messageCreate", async message => {
-    if(message.author.bot) return;
 
-    let user = getUser(message.author.id);
+  if (message.author.bot) return
 
-    // 1 XP per message
-    user.xp += 1;
-    let neededXP = 2500; // XP per rank
+  addXP(message.author.id, 5)
 
-    if(user.xp >= neededXP){
-        user.xp -= neededXP;
-        user.rank += 1;
+  const prefix = prefixes.find(p =>
+    message.content.toLowerCase().startsWith(p.toLowerCase())
+  )
 
-        // Rank-up reward
-        user.wallet += 5000;
-        user.gems += 5;
+  if (!prefix) return
 
-        message.channel.send(`
-🏆 **RANK UP!**
-${message.author.username} reached **Rank ${user.rank}**
-💰 Coins: +5000
-💎 Gems: +5
-        `);
-    }
+  const args = message.content.slice(prefix.length).trim().split(/ +/)
 
-    save();
-});
-/* ================= ECONOMY COMMANDS ================= */
-client.on("messageCreate", async message => {
-    if(message.author.bot) return;
+  const cmd = args.shift()?.toLowerCase()
 
-    const prefixUsed = PREFIXES.find(p => message.content.toLowerCase().startsWith(p.toLowerCase()));
-    if(!prefixUsed) return;
+// ==============================
+// COMMANDS START
+// ==============================
+// ==============================
+// PART 2
+// ECONOMY COMMANDS
+// ==============================
 
-    const args = message.content.slice(prefixUsed.length).trim().split(/ +/);
-    const cmd = args.shift()?.toLowerCase();
-    const userId = message.author.id;
-    let user = getUser(userId);
+// BALANCE COMMAND
+if (cmd === "bal" || cmd === "balance") {
 
-    /* ================= BALANCE ================= */
-    if(cmd === "bal" || cmd === "balance"){
-        return message.reply(`
-👨‍💼 **${message.author.username}**
-💼 Wallet: ${user.wallet}
-🏦 Bank: ${user.bank}
-💎 Gems: ${user.gems}
-        `);
-    }
+  createUser(message.author.id)
 
-    /* ================= DAILY ================= */
-    if(cmd === "d" || cmd === "daily"){
-        const now = Date.now();
-        const cooldown = 24*60*60*1000; // 24 hours
-        if(now - user.lastDaily < cooldown){
-            const remaining = cooldown - (now - user.lastDaily);
-            const hours = Math.floor(remaining/3600000);
-            const mins = Math.floor((remaining%3600000)/60000);
-            return message.reply(`⏳ You already claimed daily! Wait ${hours}h ${mins}m`);
+  const user = users[message.author.id]
+
+  const embed = new EmbedBuilder()
+    .setTitle("💰 Balance")
+    .setDescription(
+`👤 **${message.author.username}**
+
+🪙 Coins: **${user.coins}**
+💎 Gems: **${user.gems}**
+🏦 Bank: **${user.bank}**`
+    )
+    .setColor("Gold")
+
+  message.reply({ embeds: [embed] })
+
+}
+
+// ==============================
+// DAILY COMMAND
+// ==============================
+
+if (cmd === "daily") {
+
+  createUser(message.author.id)
+
+  const user = users[message.author.id]
+
+  const now = Date.now()
+
+  const cooldown = 86400000
+
+  if (now - user.lastDaily < cooldown) {
+
+    const time = Math.floor((cooldown - (now - user.lastDaily)) / 1000 / 60)
+
+    return message.reply(`⏳ You already claimed daily.\nCome back in **${time} minutes**.`)
+
+  }
+
+  const reward = Math.floor(Math.random() * 500) + 500
+
+  user.coins += reward
+
+  user.lastDaily = now
+
+  saveUsers()
+
+  const embed = new EmbedBuilder()
+    .setTitle("🎁 Daily Reward")
+    .setDescription(`You received **${reward} coins**!`)
+    .setColor("Green")
+
+  message.reply({ embeds: [embed] })
+
+}
+
+// ==============================
+// GIVE COMMAND
+// ==============================
+
+if (cmd === "give") {
+
+  const member = message.mentions.users.first()
+
+  const amount = parseInt(args[1])
+
+  if (!member) return message.reply("❌ Mention a user")
+
+  if (member.bot) return message.reply("❌ Cannot give bots")
+
+  if (isNaN(amount) || amount <= 0) return message.reply("❌ Invalid amount")
+
+  createUser(message.author.id)
+  createUser(member.id)
+
+  if (users[message.author.id].coins < amount) {
+    return message.reply("❌ Not enough coins")
+  }
+
+  users[message.author.id].coins -= amount
+  users[member.id].coins += amount
+
+  saveUsers()
+
+  message.reply(`✅ Gave **${amount} coins** to **${member.username}**`)
+
+}
+
+// ==============================
+// DEPOSIT COMMAND
+// ==============================
+
+if (cmd === "deposit" || cmd === "dep") {
+
+  const amount = parseInt(args[0])
+
+  createUser(message.author.id)
+
+  const user = users[message.author.id]
+
+  if (isNaN(amount) || amount <= 0) {
+    return message.reply("❌ Invalid amount")
+  }
+
+  if (user.coins < amount) {
+    return message.reply("❌ Not enough coins")
+  }
+
+  user.coins -= amount
+  user.bank += amount
+
+  saveUsers()
+
+  message.reply(`🏦 Deposited **${amount} coins**`)
+
+}
+
+// ==============================
+// WITHDRAW COMMAND
+// ==============================
+
+if (cmd === "withdraw" || cmd === "with") {
+
+  const amount = parseInt(args[0])
+
+  createUser(message.author.id)
+
+  const user = users[message.author.id]
+
+  if (isNaN(amount) || amount <= 0) {
+    return message.reply("❌ Invalid amount")
+  }
+
+  if (user.bank < amount) {
+    return message.reply("❌ Not enough bank balance")
+  }
+
+  user.bank -= amount
+  user.coins += amount
+
+  saveUsers()
+
+  message.reply(`💰 Withdrew **${amount} coins**`)
+
+}
+// ==============================
+// PART 3
+// RANK SYSTEM + LEADERBOARD
+// ==============================
+
+// RANK COMMAND
+if (cmd === "rank") {
+
+  createUser(message.author.id)
+
+  const user = users[message.author.id]
+
+  const neededXP = user.level * 100
+
+  const progress = hpBar(user.xp, neededXP)
+
+  const embed = new EmbedBuilder()
+    .setTitle("🌟 Rank Card")
+    .setDescription(
+`👤 **${message.author.username}**
+
+🌟 Level: **${user.level}**
+⭐ XP: **${user.xp} / ${neededXP}**
+
+📊 Progress
+${progress}
+
+🏆 Wins: **${user.wins}**
+💀 Losses: **${user.losses}**`
+    )
+    .setColor("Blue")
+
+  message.reply({ embeds: [embed] })
+
+}
+
+// ==============================
+// COINS LEADERBOARD
+// ==============================
+
+if (cmd === "lb" || cmd === "leaderboard") {
+
+  let sorted = Object.entries(users)
+    .sort((a, b) => (b[1].coins + b[1].bank) - (a[1].coins + a[1].bank))
+    .slice(0, 10)
+
+  let text = ""
+
+  for (let i = 0; i < sorted.length; i++) {
+
+    const id = sorted[i][0]
+    const data = sorted[i][1]
+
+    const user = await client.users.fetch(id).catch(() => null)
+
+    if (!user) continue
+
+    text += `**${i + 1}. ${user.username}** — 🪙 ${data.coins + data.bank}\n`
+
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle("🏆 Coins Leaderboard")
+    .setDescription(text || "No data")
+    .setColor("Gold")
+
+  message.reply({ embeds: [embed] })
+
+}
+
+// ==============================
+// GEMS LEADERBOARD
+// ==============================
+
+if (cmd === "glb" || cmd === "gemsleaderboard") {
+
+  let sorted = Object.entries(users)
+    .sort((a, b) => b[1].gems - a[1].gems)
+    .slice(0, 10)
+
+  let text = ""
+
+  for (let i = 0; i < sorted.length; i++) {
+
+    const id = sorted[i][0]
+    const data = sorted[i][1]
+
+    const user = await client.users.fetch(id).catch(() => null)
+
+    if (!user) continue
+
+    text += `**${i + 1}. ${user.username}** — 💎 ${data.gems}\n`
+
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle("💎 Gems Leaderboard")
+    .setDescription(text || "No data")
+    .setColor("Purple")
+
+  message.reply({ embeds: [embed] })
+
+}
+// ==============================
+// PART 4
+// COINFLIP + SLOT (GAMBLING)
+// ==============================
+
+// ==============================
+// COINFLIP COMMAND
+// WIN CHANCE = 30%
+// ==============================
+
+if (cmd === "cf" || cmd === "coinflip") {
+
+  createUser(message.author.id)
+
+  const user = users[message.author.id]
+
+  let bet = args[0]
+
+  if (!bet) return message.reply("❌ Enter bet amount")
+
+  if (bet === "all") {
+    bet = user.coins
+  } else {
+    bet = parseInt(bet)
+  }
+
+  if (isNaN(bet) || bet <= 0) {
+    return message.reply("❌ Invalid bet")
+  }
+
+  if (bet > user.coins) {
+    return message.reply("❌ Not enough coins")
+  }
+
+  // 30% WIN CHANCE
+  const win = Math.random() < 0.30
+
+  if (win) {
+
+    const reward = bet
+
+    user.coins += reward
+    user.wins += 1
+
+    saveUsers()
+
+    const embed = new EmbedBuilder()
+      .setTitle("🪙 Coinflip")
+      .setDescription(
+`🎉 **YOU WON!**
+
+Bet: **${bet}**
+Reward: **${reward}**
+
+New Balance: **${user.coins}**`
+      )
+      .setColor("Green")
+
+    message.reply({ embeds: [embed] })
+
+  } else {
+
+    user.coins -= bet
+    user.losses += 1
+
+    saveUsers()
+
+    const embed = new EmbedBuilder()
+      .setTitle("🪙 Coinflip")
+      .setDescription(
+`💀 **YOU LOST**
+
+Lost: **${bet}**
+
+Balance: **${user.coins}**`
+      )
+      .setColor("Red")
+
+    message.reply({ embeds: [embed] })
+
+  }
+
+}
+
+// ==============================
+// SLOT COMMAND
+// WIN CHANCE = 50%
+// ==============================
+
+if (cmd === "slot" || cmd === "slots") {
+
+  createUser(message.author.id)
+
+  const user = users[message.author.id]
+
+  let bet = args[0]
+
+  if (!bet) return message.reply("❌ Enter bet amount")
+
+  if (bet === "all") {
+    bet = user.coins
+  } else {
+    bet = parseInt(bet)
+  }
+
+  if (isNaN(bet) || bet <= 0) {
+    return message.reply("❌ Invalid bet")
+  }
+
+  if (bet > user.coins) {
+    return message.reply("❌ Not enough coins")
+  }
+
+  const symbols = ["🍒", "🍋", "🍉", "⭐", "💎"]
+
+  function spin() {
+    return symbols[Math.floor(Math.random() * symbols.length)]
+  }
+
+  const s1 = spin()
+  const s2 = spin()
+  const s3 = spin()
+
+  const result = `${s1} | ${s2} | ${s3}`
+
+  const win = Math.random() < 0.50
+
+  if (win) {
+
+    const reward = bet * 2
+
+    user.coins += reward
+    user.wins += 1
+
+    saveUsers()
+
+    const embed = new EmbedBuilder()
+      .setTitle("🎰 Slot Machine")
+      .setDescription(
+`${result}
+
+🎉 **YOU WON**
+
+Bet: **${bet}**
+Reward: **${reward}**
+
+Balance: **${user.coins}**`
+      )
+      .setColor("Green")
+
+    message.reply({ embeds: [embed] })
+
+  } else {
+
+    user.coins -= bet
+    user.losses += 1
+
+    saveUsers()
+
+    const embed = new EmbedBuilder()
+      .setTitle("🎰 Slot Machine")
+      .setDescription(
+`${result}
+
+💀 **YOU LOST**
+
+Lost: **${bet}**
+
+Balance: **${user.coins}**`
+      )
+      .setColor("Red")
+
+    message.reply({ embeds: [embed] })
+
+  }
+
         }
-        user.wallet += 500; // daily reward
-        user.lastDaily = now;
-        save();
-        return message.reply(`🎁 Daily reward claimed: 500 coins`);
+// ==============================
+// PART 5
+// PROFILE UI + ADVANCED LEADERBOARD
+// ==============================
+
+// ==============================
+// PROFILE COMMAND
+// ==============================
+
+if (cmd === "profile" || cmd === "p") {
+
+  const member = message.mentions.users.first() || message.author
+
+  createUser(member.id)
+
+  const data = users[member.id]
+
+  const embed = new EmbedBuilder()
+    .setTitle(`👤 ${member.username} Profile`)
+    .setThumbnail(member.displayAvatarURL({ dynamic: true }))
+    .setDescription(
+`🪙 **Coins:** ${data.coins}
+💎 **Gems:** ${data.gems}
+🏦 **Bank:** ${data.bank}
+
+🌟 **Level:** ${data.level}
+⭐ **XP:** ${data.xp}
+
+🏆 **Wins:** ${data.wins}
+💀 **Losses:** ${data.losses}`
+    )
+    .setColor("Aqua")
+
+  message.reply({ embeds: [embed] })
+
+}
+
+// ==============================
+// ADVANCED COINS LEADERBOARD
+// ==============================
+
+if (cmd === "clb" || cmd === "coinslb") {
+
+  let sorted = Object.entries(users)
+    .sort((a, b) => (b[1].coins + b[1].bank) - (a[1].coins + a[1].bank))
+    .slice(0, 10)
+
+  let board = ""
+
+  for (let i = 0; i < sorted.length; i++) {
+
+    const id = sorted[i][0]
+    const data = sorted[i][1]
+
+    const user = await client.users.fetch(id).catch(() => null)
+
+    if (!user) continue
+
+    let medal = "🔹"
+
+    if (i === 0) medal = "🥇"
+    if (i === 1) medal = "🥈"
+    if (i === 2) medal = "🥉"
+
+    board += `${medal} **${user.username}** — 🪙 ${data.coins + data.bank}\n`
+
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle("🏆 Top Rich Players")
+    .setDescription(board || "No Data")
+    .setColor("Gold")
+
+  message.reply({ embeds: [embed] })
+
+}
+
+// ==============================
+// GEMS LEADERBOARD ADVANCED
+// ==============================
+
+if (cmd === "gemslb") {
+
+  let sorted = Object.entries(users)
+    .sort((a, b) => b[1].gems - a[1].gems)
+    .slice(0, 10)
+
+  let board = ""
+
+  for (let i = 0; i < sorted.length; i++) {
+
+    const id = sorted[i][0]
+    const data = sorted[i][1]
+
+    const user = await client.users.fetch(id).catch(() => null)
+
+    if (!user) continue
+
+    let medal = "🔹"
+
+    if (i === 0) medal = "🥇"
+    if (i === 1) medal = "🥈"
+    if (i === 2) medal = "🥉"
+
+    board += `${medal} **${user.username}** — 💎 ${data.gems}\n`
+
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle("💎 Top Gems Players")
+    .setDescription(board || "No Data")
+    .setColor("Purple")
+
+  message.reply({ embeds: [embed] })
+
+  }
+// ==============================
+// PART 6
+// BATTLE SYSTEM (LIVE HP UI)
+// ==============================
+
+// ACTIVE BATTLES
+const battles = {}
+
+// ==============================
+// BATTLE COMMAND
+// ==============================
+
+if (cmd === "battle") {
+
+  const opponent = message.mentions.users.first()
+
+  if (!opponent) return message.reply("❌ Mention a user to battle")
+
+  if (opponent.bot) return message.reply("❌ You cannot battle bots")
+
+  if (opponent.id === message.author.id) return message.reply("❌ You cannot battle yourself")
+
+  const challenger = message.author
+
+  const battleId = challenger.id + opponent.id
+
+  battles[battleId] = {
+    challenger: challenger.id,
+    acceptor: opponent.id,
+    hp1: 100,
+    hp2: 100
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle("⚔️ Battle Request")
+    .setDescription(
+`🔥 **${challenger.username}** challenged **${opponent.username}**
+
+Type **s accept** to start the battle`
+    )
+    .setColor("Orange")
+
+  message.reply({ embeds: [embed] })
+
+}
+
+// ==============================
+// ACCEPT BATTLE
+// ==============================
+
+if (cmd === "accept") {
+
+  const battle = Object.values(battles).find(b => b.acceptor === message.author.id)
+
+  if (!battle) return message.reply("❌ No battle request found")
+
+  const p1 = await client.users.fetch(battle.challenger)
+  const p2 = await client.users.fetch(battle.acceptor)
+
+  let hp1 = 100
+  let hp2 = 100
+
+  const msg = await message.reply("⚔️ Battle Starting...")
+
+  const interval = setInterval(async () => {
+
+    const dmg1 = Math.floor(Math.random() * 20) + 5
+    const dmg2 = Math.floor(Math.random() * 20) + 5
+
+    hp1 -= dmg2
+    hp2 -= dmg1
+
+    if (hp1 < 0) hp1 = 0
+    if (hp2 < 0) hp2 = 0
+
+    const bar1 = hpBar(hp1, 100)
+    const bar2 = hpBar(hp2, 100)
+
+    const ui =
+`┌─── ACCEPTOR ───┐ ┌─── CHALLENGER ───┐
+│🐉: PLAYER              │ │🐉: PLAYER                 │
+│📛: ${p2.username}         │ │📛: ${p1.username}            │
+│🌟 LVL: ?                 │ │🌟 LVL: ?                    │
+│❤️ HP ${bar2}│ │❤️ HP ${bar1} │
+│🖼️ Avatar: LINK      │ │🖼️ Avatar: LINK         │
+└───────────────┘ └──────────────────┘`
+
+    await msg.edit(`⚔️ **BATTLE** ⚔️\n\n${ui}`)
+
+    if (hp1 <= 0 || hp2 <= 0) {
+
+      clearInterval(interval)
+
+      let winner
+      let loser
+
+      if (hp1 <= 0) {
+        winner = p2
+        loser = p1
+      } else {
+        winner = p1
+        loser = p2
+      }
+
+      createUser(winner.id)
+      createUser(loser.id)
+
+      users[winner.id].wins += 1
+      users[loser.id].losses += 1
+
+      saveUsers()
+
+      await msg.edit(
+`🏆 **WINNER: ${winner.username}**
+
+💀 **LOSER: ${loser.username}**`
+      )
+
     }
 
-    /* ================= DEPOSIT ================= */
-    if(cmd === "d" || cmd === "deposit"){
-        let amount = args[0];
-        if(!amount) return message.reply("❌ Enter amount to deposit or 'all'");
-        if(amount.toLowerCase()==="all") amount = user.wallet;
-        amount = parseInt(amount);
-        if(isNaN(amount) || amount <=0) return message.reply("❌ Invalid amount");
-        if(amount > user.wallet) return message.reply("❌ Not enough wallet coins");
+  }, 3000)
 
-        user.wallet -= amount;
-        user.bank += amount;
-        save();
-        return message.reply(`🏦 Deposited ${amount} coins to bank`);
-    }
+                                             }
+// ==============================
+// PART 7
+// SHOP + INVENTORY SYSTEM
+// ==============================
 
-    /* ================= WITHDRAW ================= */
-    if(cmd === "w" || cmd === "withdraw"){
-        let amount = args[0];
-        if(!amount) return message.reply("❌ Enter amount to withdraw or 'all'");
-        if(amount.toLowerCase()==="all") amount = user.bank;
-        amount = parseInt(amount);
-        if(isNaN(amount) || amount <=0) return message.reply("❌ Invalid amount");
-        if(amount > user.bank) return message.reply("❌ Not enough bank coins");
+// SHOP ITEMS
+const shop = {
+  sword: {
+    name: "⚔️ Sword",
+    price: 500,
+    power: 10
+  },
+  shield: {
+    name: "🛡️ Shield",
+    price: 400,
+    power: 8
+  },
+  potion: {
+    name: "🧪 Potion",
+    price: 200,
+    power: 0
+  }
+}
 
-        user.bank -= amount;
-        user.wallet += amount;
-        save();
-        return message.reply(`👛 Withdrawn ${amount} coins from bank`);
-    }
+// ==============================
+// SHOP COMMAND
+// ==============================
 
-    /* ================= GIVE ================= */
-    if(cmd === "g" || cmd === "give"){
-        const target = message.mentions.users.first();
-        let amount = parseInt(args[1]);
-        if(!target) return message.reply("❌ Mention a user to give coins");
-        if(isNaN(amount) || amount <=0) return message.reply("❌ Enter valid amount");
-        if(amount > user.wallet) return message.reply("❌ Not enough coins");
+if (cmd === "shop") {
 
-        let tUser = getUser(target.id);
-        user.wallet -= amount;
-        tUser.wallet += amount;
-        save();
-        return message.reply(`💸 Sent ${amount} coins to ${target.username}`);
-    }
-});
-/* ================= GAMES + SELECT + PROFILE ================= */
-client.on("messageCreate", async message => {
-    if(message.author.bot) return;
+  let text = ""
 
-    const prefixUsed = PREFIXES.find(p => message.content.toLowerCase().startsWith(p.toLowerCase()));
-    if(!prefixUsed) return;
+  for (const key in shop) {
 
-    const args = message.content.slice(prefixUsed.length).trim().split(/ +/);
-    const cmd = args.shift()?.toLowerCase();
-    const userId = message.author.id;
-    let user = getUser(userId);
+    const item = shop[key]
 
-    /* ================= COINFLIP ================= */
-    if(cmd === "cf" || cmd === "coinflip"){
-        let bet = parseInt(args[0]);
-        if(isNaN(bet) || bet <=0) return message.reply("❌ Enter valid bet amount");
-        if(bet > user.wallet) bet = user.wallet;
-        if(bet > 100000) bet = 100000;
+    text += `**${item.name}**
+Price: 🪙 ${item.price}
+ID: \`${key}\`
 
-        let outcomes = ["heads","tails"];
-        let choice = args[1]?.toLowerCase();
-        if(!choice || !outcomes.includes(choice)) choice = outcomes[Math.floor(Math.random()*2)];
+`
 
-        // Simulate rolling animation
-        let msgRoll = await message.channel.send("🎲 Coin is flipping...");
-        setTimeout(()=>{
-            let result = outcomes[Math.floor(Math.random()*2)];
-            if(result === choice){
-                user.wallet += bet;
-                msgRoll.edit(`✅ Coin landed **${result}**! You won ${bet} coins`);
-            } else {
-                user.wallet -= bet;
-                msgRoll.edit(`❌ Coin landed **${result}**! You lost ${bet} coins`);
-            }
-            save();
-        },2000);
-    }
+  }
 
-    /* ================= SLOT MACHINE ================= */
-    if(cmd === "s" || cmd === "slot"){
-        let bet = parseInt(args[0]);
-        if(isNaN(bet) || bet <=0) return message.reply("❌ Enter valid bet amount");
-        if(bet > user.wallet) bet = user.wallet;
-        if(bet > 100000) bet = 100000;
+  const embed = new EmbedBuilder()
+    .setTitle("🛒 Item Shop")
+    .setDescription(text)
+    .setColor("Orange")
 
-        const symbols = ["💎","🍉","🥭"];
-        let msgSlot = await message.channel.send("🎰 Spinning slot...");
-        setTimeout(()=>{
-            let roll = [symbols[Math.floor(Math.random()*3)],symbols[Math.floor(Math.random()*3)],symbols[Math.floor(Math.random()*3)]];
-            let payout = 0;
-            if(roll.every(s=>s===roll[0])){
-                if(roll[0]==="💎") payout = bet*3;
-                else if(roll[0]==="🥭") payout = bet*2;
-                else if(roll[0]==="🍉") payout = bet;
-            }
-            if(payout>0){
-                user.wallet += payout;
-                msgSlot.edit(`🎰 [${roll.join(" ")}]\n✅ You won ${payout} coins!`);
-            } else {
-                user.wallet -= bet;
-                msgSlot.edit(`🎰 [${roll.join(" ")}]\n❌ You lost ${bet} coins!`);
-            }
-            save();
-        },2000);
-    }
+  message.reply({ embeds: [embed] })
 
-    /* ================= SELECT DRAGON / WEAPON / ARMOUR ================= */
-    if(cmd === "set"){
-        const category = args[0]?.toLowerCase();
-        const name = args.slice(1).join(" ").toLowerCase();
-        if(!category || !name) return message.reply("❌ Usage: s set <dragon/weapon/armour> <name>");
+}
 
-        if(category==="dragon"){
-            if(!user.inventory.dragons.includes(name)) return message.reply("❌ You don't own this dragon");
-            user.dragon = name;
-            save();
-            return message.reply(`✅ Selected dragon: ${dragons[name].emoji} ${dragons[name].name}`);
-        }
-        if(category==="weapon"){
-            if(!user.inventory.weapons.includes(name)) return message.reply("❌ You don't own this weapon");
-            user.weapon = name;
-            save();
-            return message.reply(`✅ Selected weapon: ${name}`);
-        }
-        if(category==="armour"){
-            if(!user.inventory.armours.includes(name)) return message.reply("❌ You don't own this armour");
-            user.armour = name;
-            save();
-            return message.reply(`✅ Selected armour: ${name}`);
-        }
-        return message.reply("❌ Invalid category");
-    }
+// ==============================
+// BUY COMMAND
+// ==============================
 
-    /* ================= PROFILE ================= */
-    if(cmd === "profile"){
-        const avatar = message.author.displayAvatarURL({dynamic:true, size:64});
-        const embed = new EmbedBuilder()
-            .setTitle(`${message.author.username} Profile`)
-            .setThumbnail(avatar)
-            .addFields(
-                {name:"Rank", value: `${user.rank}`, inline:true},
-                {name:"XP", value: `${user.xp}/2500`, inline:true},
-                {name:"Wallet", value: `${user.wallet}`, inline:true},
-                {name:"Bank", value: `${user.bank}`, inline:true},
-                {name:"Gems", value: `${user.gems}`, inline:true},
-                {name:"Dragon", value: user.dragon? `${dragons[user.dragon].emoji} ${dragons[user.dragon].name}`:"None", inline:true},
-                {name:"Weapon", value: user.weapon || "None", inline:true},
-                {name:"Armour", value: user.armour || "None", inline:true}
-            )
-            .setColor("#00ffff");
+if (cmd === "buy") {
 
-        return message.reply({embeds:[embed]});
-    }
+  const itemID = args[0]
 
-    /* ================= INVENTORY ================= */
-    if(cmd === "inv" || cmd === "inventory"){
-        return message.reply(`
-👤 ${message.author.username} Inventory
+  if (!itemID) return message.reply("❌ Enter item ID")
 
-🐉 DRAGONS:
-${user.inventory.dragons.length?user.inventory.dragons.map(d=>`${dragons[d].emoji} ${dragons[d].name}`).join("\n"):"None"}
+  const item = shop[itemID]
 
-🛡 ARMOURS:
-${user.inventory.armours.length?user.inventory.armours.join("\n"):"None"}
+  if (!item) return message.reply("❌ Item not found")
 
-🗡 WEAPONS:
-${user.inventory.weapons.length?user.inventory.weapons.join("\n"):"None"}
-        `);
-    }
+  createUser(message.author.id)
 
-});
-/* ================= BATTLE SYSTEM ================= */
-client.on("messageCreate", async message=>{
-    if(message.author.bot) return;
+  const user = users[message.author.id]
 
-    const prefixUsed = PREFIXES.find(p=>message.content.toLowerCase().startsWith(p.toLowerCase()));
-    if(!prefixUsed) return;
+  if (user.coins < item.price) {
+    return message.reply("❌ Not enough coins")
+  }
 
-    const args = message.content.slice(prefixUsed.length).trim().split(/ +/);
-    const cmd = args.shift()?.toLowerCase();
-    const user = getUser(message.author.id);
+  user.coins -= item.price
 
-    /* ================= CHALLENGE ================= */
-    if(cmd==="challenge"){
-        const target = message.mentions.users.first();
-        if(!target) return message.reply("❌ Mention a user to challenge");
-        const tUser = getUser(target.id);
+  user.inventory.push(itemID)
 
-        if(!user.dragon) return message.reply("❌ You must select a dragon");
-        if(!tUser.dragon) return message.reply("❌ Target must have a dragon selected");
+  saveUsers()
 
-        user.currentChallenge = {target: target.id};
-        tUser.currentChallenge = {from: message.author.id};
+  message.reply(`✅ You bought **${item.name}** for **${item.price} coins**`)
 
-        return message.channel.send(`${target}, you have been challenged by ${message.author}. Type \`s accept\` to start battle!`);
-    }
+}
 
-    /* ================= ACCEPT ================= */
-    if(cmd==="accept"){
-        if(!user.currentChallenge?.from) return message.reply("❌ No challenge to accept");
-        const challenger = client.users.cache.get(user.currentChallenge.from);
-        const cUser = getUser(challenger.id);
+// ==============================
+// INVENTORY COMMAND
+// ==============================
 
-        // Battle calculations
-        let userDragon = dragons[user.dragon];
-        let cDragon = dragons[cUser.dragon];
+if (cmd === "inv" || cmd === "inventory") {
 
-        let userPower = userDragon.basePower + (user.rank*0.05*userDragon.basePower);
-        let cPower = cDragon.basePower + (cUser.rank*0.05*cDragon.basePower);
+  createUser(message.author.id)
 
-        if(user.weapon) userPower += weapons[user.weapon]?.attack||0;
-        if(cUser.weapon) cPower += weapons[cUser.weapon]?.attack||0;
+  const user = users[message.author.id]
 
-        let userDef = armours[user.armour]?.defense||0;
-        let cDef = armours[cUser.armour]?.defense||0;
+  if (user.inventory.length === 0) {
+    return message.reply("🎒 Your inventory is empty")
+  }
 
-        let userHP = userPower + userDef;
-        let cHP = cPower + cDef;
+  let items = ""
 
-        // Live HP bars simulation (simplified)
-        let battleMsg = await message.channel.send(`
-╔━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╗
-      ⚔️ BATTLE ARENA ⚔️
-╠━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╣
-  ACCEPTOR               ║  CHALLENGER
-   ${message.author.username}        ║  ${challenger.username}
-╠━━━━━━━━━━━━━━╬━━━━━━━━━━━━━━╣
- ${userDragon.emoji} ${user.dragon.toUpperCase()}       ║  ${cDragon.emoji} ${cUser.dragon.toUpperCase()}
- ⭐ LVL ${user.rank}                  ║  ⭐ LVL ${cUser.rank}
- 🛡️ ${userDragon.element}                 ║  ☄️ ${cDragon.element}
-╠━━━━━━━━━━━━━━╬━━━━━━━━━━━━━━╣
-        ❤️ [■■■■■□]  ║  ❤️ [■■■■□□]
-                        ${userHP}       ║     ${cHP}
-╠━━━━━━━━━━━━━━╬━━━━━━━━━━━━━━╣
- 📢 STATUS: BATTLE IN PROGRESS
-╚━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╝
-        `);
+  user.inventory.forEach(i => {
 
-        // Decide winner randomly based on power ratio
-        let total = userPower+cPower;
-        let chance = Math.random()*total;
-        let winner, loser;
-        if(chance <= userPower){
-            winner = user;
-            loser = cUser;
-        } else {
-            winner = cUser;
-            loser = user;
-        }
+    const item = shop[i]
 
-        // Update wins/loses + reward
-        winner.wins +=1;
-        loser.loses +=1;
-        winner.gems += 10;
+    if (item) items += `${item.name}\n`
 
-        save();
-        setTimeout(()=>{
-            battleMsg.edit(`🎉 Battle finished! Winner: ${client.users.cache.get(Object.keys(users).find(id=>users[id]===winner)).username}`);
-        },3000);
+  })
 
-        user.currentChallenge = null;
-        cUser.currentChallenge = null;
-    }
+  const embed = new EmbedBuilder()
+    .setTitle(`🎒 ${message.author.username}'s Inventory`)
+    .setDescription(items)
+    .setColor("Blue")
 
-    /* ================= LEADERBOARDS ================= */
-    if(cmd==="lb" || cmd==="leaderboard"){
-        const type = args[0]?.toLowerCase();
-        if(type==="balance" || type==="b"){
-            const sorted = Object.entries(users).sort((a,b)=>b[1].wallet+a[1].bank - (a[1].wallet+b[1].bank));
-            let lbMsg = "**💰 BALANCE LEADERBOARD**\n";
-            sorted.slice(0,10).forEach(([id,u],i)=>{
-                lbMsg += `${i+1}. <@${id}> - Wallet:${u.wallet} Bank:${u.bank} Gems:${u.gems}\n`;
-            });
-            return message.channel.send(lbMsg);
-        }
-        if(type==="battles" || type==="bat"){
-            const sorted = Object.entries(users).sort((a,b)=>b[1].wins - a[1].wins);
-            let lbMsg = "**⚔️ BATTLE LEADERBOARD**\n";
-            sorted.slice(0,10).forEach(([id,u],i)=>{
-                lbMsg += `${i+1}. <@${id}> - Wins:${u.wins} Loses:${u.loses}\n`;
-            });
-            return message.channel.send(lbMsg);
-        }
-    }
+  message.reply({ embeds: [embed] })
 
-    /* ================= SHOP ================= */
-    if(cmd==="shop"){
-        return message.channel.send(`
-🛒 **SHOP CATEGORIES**
+}
 
-🐉 DRAGONS:
-${Object.keys(dragons).join(", ")}
+// ==============================
+// CLOSE COMMAND HANDLER
+// ==============================
 
-🛡 ARMOURS:
-${Object.keys(armours).join(", ")}
+})
 
-🗡 WEAPONS:
-${Object.keys(weapons).join(", ")}
 
-Buy with: s buy <category> <name>
-        `);
-    }
+// ==============================
+// LOGIN BOT
+// ==============================
 
-    /* ================= BUY ================= */
-    if(cmd==="buy"){
-        const category = args[0]?.toLowerCase();
-        const name = args.slice(1).join(" ").toLowerCase();
-        if(!category || !name) return message.reply("❌ Usage: s buy <category> <name>");
-        if(category==="dragon"){
-            if(!dragons[name]) return message.reply("❌ Dragon not found");
-            if(user.inventory.dragons.includes(name)) return message.reply("❌ You already own this dragon");
-            let price = 5000000 + dragons[name].basePower*100000; // example dynamic price
-            if(user.wallet<price) return message.reply("❌ Not enough coins");
-            user.wallet -= price;
-            user.inventory.dragons.push(name);
-            save();
-            return message.reply(`✅ You bought dragon: ${dragons[name].emoji} ${dragons[name].name} for ${price} coins`);
-        }
-        if(category==="weapon"){
-            if(!weapons[name]) return message.reply("❌ Weapon not found");
-            if(user.inventory.weapons.includes(name)) return message.reply("❌ You already own this weapon");
-            let price = 3000000;
-            if(user.wallet<price) return message.reply("❌ Not enough coins");
-            user.wallet -= price;
-            user.inventory.weapons.push(name);
-            save();
-            return message.reply(`✅ You bought weapon: ${name} for ${price} coins`);
-        }
-        if(category==="armour"){
-            if(!armours[name]) return message.reply("❌ Armour not found");
-            if(user.inventory.armours.includes(name)) return message.reply("❌ You already own this armour");
-            let price = 3000000;
-            if(user.wallet<price) return message.reply("❌ Not enough coins");
-            user.wallet -= price;
-            user.inventory.armours.push(name);
-            save();
-            return message.reply(`✅ You bought armour: ${name} for ${price} coins`);
-        }
-        return message.reply("❌ Invalid category");
-    }
-
-});
-/* ================= ADMIN & OWNER COMMANDS ================= */
-client.on("messageCreate", async message=>{
-    if(message.author.bot) return;
-
-    const prefixUsed = PREFIXES.find(p=>message.content.toLowerCase().startsWith(p.toLowerCase()));
-    if(!prefixUsed) return;
-
-    const args = message.content.slice(prefixUsed.length).trim().split(/ +/);
-    const cmd = args.shift()?.toLowerCase();
-    const user = getUser(message.author.id);
-
-    /* ================= SERVER ADMIN ENABLE/DISABLE ================= */
-    if(cmd==="disable"){
-        if(!message.member.permissions.has("Administrator")) return message.reply("❌ Admin only");
-        const channel = message.channel.id;
-        user.disabledChannel = true;
-        return message.reply("✅ Bot disabled in this channel");
-    }
-    if(cmd==="enable"){
-        if(!message.member.permissions.has("Administrator")) return message.reply("❌ Admin only");
-        user.disabledChannel = false;
-        return message.reply("✅ Bot enabled in this channel");
-    }
-
-    /* ================= BOT OWNER ONLY ================= */
-    if(message.author.id!==OWNER_ID) return;
-
-    if(cmd==="setmoney"){
-        const target = message.mentions.users.first();
-        let amount = parseInt(args[1]);
-        if(!target || isNaN(amount)) return message.reply("❌ Usage: s setmoney @user amount");
-        const tUser = getUser(target.id);
-        tUser.wallet = amount;
-        save();
-        return message.reply(`✅ Set ${target.username} wallet to ${amount}`);
-    }
-
-    if(cmd==="setgems"){
-        const target = message.mentions.users.first();
-        let amount = parseInt(args[1]);
-        if(!target || isNaN(amount)) return message.reply("❌ Usage: s setgems @user amount");
-        const tUser = getUser(target.id);
-        tUser.gems = amount;
-        save();
-        return message.reply(`✅ Set ${target.username} gems to ${amount}`);
-    }
-
-    if(cmd==="admin"){
-        const sub = args[0]?.toLowerCase();
-        const target = message.mentions.users.first();
-        if(sub==="add"){
-            if(!target) return message.reply("❌ Mention user");
-            const tUser = getUser(target.id);
-            tUser.isAdmin = true;
-            save();
-            return message.reply(`✅ ${target.username} added as bot admin`);
-        }
-        if(sub==="remove"){
-            if(!target) return message.reply("❌ Mention user");
-            const tUser = getUser(target.id);
-            tUser.isAdmin = false;
-            save();
-            return message.reply(`✅ ${target.username} removed from bot admin`);
-        }
-        if(sub==="list"){
-            let admins = Object.entries(users).filter(([id,u])=>u.isAdmin).map(([id,u])=>`<@${id}>`);
-            return message.reply(`👑 Bot Admins: ${admins.join(", ") || "None"}`);
-        }
-    }
-
-    if(cmd==="resetall"){
-        users = {};
-        save();
-        return message.reply("⚠ All data reset!");
-    }
-});
-/* ================= HELP COMMAND ================= */
-client.on("messageCreate", async message=>{
-    if(message.author.bot) return;
-
-    const prefixUsed = PREFIXES.find(p=>message.content.toLowerCase().startsWith(p.toLowerCase()));
-    if(!prefixUsed) return;
-
-    const args = message.content.slice(prefixUsed.length).trim().split(/ +/);
-    const cmd = args.shift()?.toLowerCase();
-
-    if(cmd==="help"){
-        const embed = new EmbedBuilder()
-            .setTitle("⚡ Spark Bot Commands")
-            .setColor("#00ffff")
-            .addFields(
-                {name:"💰 Economy", value: "`s bal` `s deposit <amount/all>` `s withdraw <amount/all>` `s give @user <amount>`"},
-                {name:"🎁 Rewards", value: "`s daily`"},
-                {name:"👤 Profile", value: "`s profile` `s rank` `s inv`"},
-                {name:"🎮 Games", value: "`s cf <amount> <heads/tails>` `s slot <amount>`"},
-                {name:"⚔ Battle", value: "`s challenge @user` `s accept`"},
-                {name:"🏆 Leaderboards", value: "`s lb balance` `s lb battles`"},
-                {name:"🛒 Shop", value: "`s shop` `s buy <category> <name>`"},
-                {name:"🔧 Admin (Server)", value: "`s enable` `s disable`"},
-                {name:"👑 Bot Owner", value: "`s setmoney @user <amount>` `s setgems @user <amount>` `s admin add/remove/list` `s resetall`"}
-            )
-            .setFooter({text:"Spark Bot – Powered by FZBOY"});
-
-        return message.reply({embeds:[embed]});
-    }
-});
-
-/* ================= BOT LOGIN ================= */
-client.login(process.env.TOKEN);
+client.login(process.env.TOKEN)
