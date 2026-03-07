@@ -1,15 +1,28 @@
 {
   "name": "spark-bot",
   "version": "1.0.0",
-  "description": "Spark Advanced Discord Economy & Battle Bot",
+  "description": "Discord bot like Owo with economy, games, battle system, shop, profile & leaderboard",
   "main": "index.js",
-  "type": "commonjs",
   "scripts": {
     "start": "node index.js"
   },
-  "author": "SPARKLE MC",
-  "license": "ISC",
   "dependencies": {
-    "discord.js": "^14.14.1"
-  }
+    "discord.js": "^14.15.1",
+    "dotenv": "^16.3.1",
+    "fs": "0.0.1-security"
+  },
+  "engines": {
+    "node": "18.x"
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "owo",
+    "spark-bot",
+    "economy",
+    "games",
+    "battle"
+  ],
+  "author": "FZBOY",
+  "license": "MIT"
 }
