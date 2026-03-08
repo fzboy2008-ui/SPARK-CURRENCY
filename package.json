@@ -1,7 +1,7 @@
 {
   "name": "sparkle-empire-bot",
   "version": "1.0.0",
-  "description": "Sparkle Empire Discord Bot",
+  "description": "Sparkle Empire RPG Discord Bot",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
