@@ -1,26 +1,13 @@
 {
-  "name": "spark-pro-bot",
+  "name": "sparkle-empire-bot",
   "version": "1.0.0",
-  "description": "Advanced Discord Economy and Battle Bot",
+  "description": "Sparkle Empire RPG Discord Bot",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js"
+    "start": "node index.js"
   },
-  "keywords": [
-    "discord.js",
-    "economy",
-    "battle",
-    "game"
-  ],
-  "author": "fzboy786_01978",
-  "license": "ISC",
+  "author": "FZBOY",
   "dependencies": {
-    "discord.js": "^14.14.1",
-    "dotenv": "^16.4.5",
-    "fs": "0.0.1-security"
-  },
-  "devDependencies": {
-    "nodemon": "^3.1.0"
+    "discord.js": "^14.14.1"
   }
 }
