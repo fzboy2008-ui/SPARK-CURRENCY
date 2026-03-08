@@ -525,6 +525,39 @@ Battle in progress...
         }
     }
 });
+/* ================= HELP COMMAND ================= */
+if(cmd === "help"){
+    const embed = new EmbedBuilder()
+        .setTitle("🆘 SPARK BOT - COMMANDS")
+        .setDescription(`
+💻 **User Commands**
+• s daily         - Claim your daily reward
+• s bal / balance - Show wallet, bank & gems
+• s cf / coinflip <amount> [heads/tails] - Flip a coin
+• s slot <amount> - Play slot machine
+• s rank          - Show your rank and XP progress
+• s profile       - Show your profile (dragon, weapon, armour)
+• s shop          - View shop categories
+• s buy <category> <name> - Buy dragon, weapon or armour
+• s inv / inventory - Show your inventory
+• s deposit <amount/all>  - Deposit coins to bank
+• s withdraw <amount/all> - Withdraw coins from bank
+• s challenge @user       - Challenge another user to battle
+• s accept                - Accept a battle challenge
+• s lb balance / b        - Leaderboard by coins/gems
+• s lb battles / bat      - Leaderboard by battle wins
+
+⚙️ **Admin Commands**
+• s disable - Disable bot in current channel (Admin only)
+• s enable  - Enable bot in current channel (Admin only)
+
+👑 **Owner Commands**
+• s setmoney @user <amount> - Set coins for a user
+• s setgems @user <amount>   - Set gems for a user
+        `)
+        .setColor("#00ffff");
+    return message.reply({embeds: [embed]});
+}
 
 /* ================= BOT LOGIN ================= */
 client.login(process.env.TOKEN);
