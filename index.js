@@ -3,29 +3,22 @@ const fs = require("fs");
 require("dotenv").config();
 
 const client = new Client({
-  intents:[
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
-  ]
+intents:[
+GatewayIntentBits.Guilds,
+GatewayIntentBits.GuildMessages,
+GatewayIntentBits.MessageContent
+]
 });
 
 const PREFIXES = ["s","spark"];
 const MAX_BET = 100000;
 
-// ================= PREFIX =================
-
 function getPrefix(message){
-
-  const msg = message.content.toLowerCase();
-
-  for(const p of PREFIXES){
-    if(msg.startsWith(p+" ")) return p;
-  }
-
+const msg = message.content.toLowerCase();
+for(const p of PREFIXES){
+if(msg.startsWith(p+" ")) return p;
 }
-
-// ================= DATABASE =================
+}
 
 if(!fs.existsSync("./database")) fs.mkdirSync("./database");
 
@@ -124,9 +117,7 @@ const percent = Math.floor((xp/required)*100);
 
 const filled = Math.floor(percent/10);
 
-const bar = "█".repeat(filled)+"░".repeat(10-filled);
-
-return `${bar} ${percent}%`;
+return "█".repeat(filled)+"░".repeat(10-filled)+" "+percent+"%";
 
 }
 
@@ -143,18 +134,16 @@ client.on("messageCreate",async message=>{
 if(message.author.bot) return;
 
 const prefix = getPrefix(message);
-
 if(!prefix) return;
 
 const args = message.content.slice(prefix.length).trim().split(/ +/);
-
 const cmd = args.shift().toLowerCase();
 
 const user = getUser(message.author.id);
 
 // ================= XP SYSTEM =================
 
-user.xp += 1;
+user.xp++;
 
 const required = (user.level+1)*2500;
 
@@ -176,12 +165,15 @@ new EmbedBuilder()
 .setTitle("⭐ LEVEL UP")
 
 .setDescription(`
+
 ${message.author.username}
 
 ${user.level-1} → ${user.level}
 
 💰 +${reward} Coins
+
 `)
+
 ]
 
 });
@@ -201,19 +193,19 @@ new EmbedBuilder()
 
 .setColor("Blue")
 
-.setTitle("⚡ SPARK BOT COMMANDS")
+.setTitle("⚡ SPARK COMMANDS")
 
 .setDescription(`
 
 💰 ECONOMY
 s bal
 s daily
-s deposit <amount>
-s withdraw <amount>
+s deposit
+s withdraw
 
 🎰 CASINO
-s cf <amount/all>
-s slot <amount/all>
+s cf
+s slot
 
 👤 PLAYER
 s profile
@@ -221,12 +213,13 @@ s rank
 
 🏪 RPG
 s shop
-s buy <type> <item>
+s buy
 s inv
-s set <type> <item>
+s set
 s upgrade
 
 `)
+
 ]
 
 });
@@ -244,17 +237,18 @@ new EmbedBuilder()
 
 .setColor("Gold")
 
-.setTitle("💰 SPARK BALANCE")
+.setTitle("💰 BALANCE")
 
 .setDescription(`
 
 👤 ${message.author.username}
 
 💵 Wallet : ${user.wallet}
-🏦 Bank   : ${user.bank}
-💎 Gems   : ${user.gems}
+🏦 Bank : ${user.bank}
+💎 Gems : ${user.gems}
 
 `)
+
 ]
 
 });
@@ -280,12 +274,63 @@ return message.reply(`Next Daily In ${h}h ${m}m ${s}s`);
 
 }
 
-user.wallet += 1000;
-user.lastDaily = now;
+user.wallet+=1000;
+user.lastDaily=now;
 
 save();
 
-return message.reply("🎁 Daily Reward +1000 Coins");
+return message.reply({
+
+embeds:[
+new EmbedBuilder()
+
+.setColor("Green")
+
+.setTitle("🎁 DAILY")
+
+.setDescription("💰 +1000 Coins")
+
+]
+
+});
+
+}
+
+// ================= DEPOSIT =================
+
+if(cmd==="deposit"){
+
+const amount = parseInt(args[0]);
+
+if(!amount) return message.reply("Enter amount");
+
+if(user.wallet < amount) return message.reply("Not enough coins");
+
+user.wallet-=amount;
+user.bank+=amount;
+
+save();
+
+return message.reply(`🏦 Deposited ${amount}`);
+
+}
+
+// ================= WITHDRAW =================
+
+if(cmd==="withdraw"){
+
+const amount = parseInt(args[0]);
+
+if(!amount) return message.reply("Enter amount");
+
+if(user.bank < amount) return message.reply("Not enough coins");
+
+user.bank-=amount;
+user.wallet+=amount;
+
+save();
+
+return message.reply(`💸 Withdrawn ${amount}`);
 
 }
 
@@ -315,21 +360,20 @@ new EmbedBuilder()
 ⚡ XP
 ${bar}
 
-━━━━━━━━━━━━━━━━
-
-💰 ECONOMY
+━━━━━━━━━━━━━━
 
 💵 Wallet : ${user.wallet}
-🏦 Bank   : ${user.bank}
-💎 Gems   : ${user.gems}
+🏦 Bank : ${user.bank}
+💎 Gems : ${user.gems}
 
-━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━
 
 🐉 Dragon : ${user.equipped.dragon || "None"}
 ⚔ Weapon : ${user.equipped.weapon || "None"}
 🛡 Armour : ${user.equipped.armour || "None"}
 
 `)
+
 ]
 
 });
@@ -340,13 +384,9 @@ ${bar}
 
 if(cmd==="shop"){
 
-let text="";
+const cat = args[0];
 
-for(let d in shop.dragons){
-
-text+=`${shop.dragons[d].name} - ${shop.dragons[d].price}\n`;
-
-}
+if(!cat){
 
 return message.reply({
 
@@ -355,12 +395,77 @@ new EmbedBuilder()
 
 .setColor("Green")
 
-.setTitle("🏪 DRAGON SHOP")
+.setTitle("🏪 SHOP")
 
-.setDescription(text)
+.setDescription(`
+
+s shop dragons
+s shop weapons
+s shop armours
+
+`)
+
 ]
 
 });
+
+}
+
+let items = shop[cat];
+
+if(!items) return message.reply("Invalid shop");
+
+let text="";
+
+for(let i in items){
+text+=`${items[i].name}
+💰 ${items[i].price}
+
+`;
+}
+
+return message.reply({
+
+embeds:[
+new EmbedBuilder()
+
+.setColor("Gold")
+
+.setTitle(`🏪 ${cat.toUpperCase()}`)
+
+.setDescription(text)
+
+]
+
+});
+
+}
+
+// ================= BUY =================
+
+if(cmd==="buy"){
+
+const cat=args[0];
+const item=args[1];
+
+if(cat==="dragon"){
+
+const data = shop.dragons[item];
+
+if(!data) return message.reply("Dragon not found");
+
+if(user.wallet < data.price)
+return message.reply("Not enough coins");
+
+user.wallet-=data.price;
+
+user.inventory.dragons[item]={level:1};
+
+save();
+
+return message.reply(`🐉 Bought ${data.name}`);
+
+}
 
 }
 
@@ -377,7 +482,7 @@ return message.reply({
 embeds:[
 new EmbedBuilder()
 
-.setColor("Gold")
+.setColor("Purple")
 
 .setTitle("🎒 INVENTORY")
 
@@ -393,6 +498,7 @@ ${weapons}
 ${armours}
 
 `)
+
 ]
 
 });
