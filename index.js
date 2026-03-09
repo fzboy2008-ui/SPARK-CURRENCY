@@ -65,9 +65,7 @@ return users[id];
 
 }
 
-// ================= SHOP =================
-
-const shop = {
+const shop={
 
 dragons:{
 phoenix:{name:"🔥 Phoenix",price:10000000},
@@ -95,65 +93,53 @@ earthshield:{name:"🪨 Earth Shield",price:1000000}
 
 };
 
-// ================= RANK =================
-
 function getRank(level){
-
 if(level>=41) return "👑 Mythic";
 if(level>=31) return "💎 Diamond";
 if(level>=21) return "🥇 Gold";
 if(level>=11) return "🥈 Silver";
 return "🥉 Bronze";
-
 }
-
-// ================= XP BAR =================
 
 function xpBar(xp,level){
 
-const required = (level+1)*2500;
-
-const percent = Math.floor((xp/required)*100);
-
-const filled = Math.floor(percent/10);
+const required=(level+1)*2500;
+const percent=Math.floor((xp/required)*100);
+const filled=Math.floor(percent/10);
 
 return "█".repeat(filled)+"░".repeat(10-filled)+" "+percent+"%";
 
 }
 
-// ================= READY =================
-
 client.once("ready",()=>{
 console.log("⚡ Spark Bot Online: "+client.user.tag);
 });
-
-// ================= MESSAGE =================
 
 client.on("messageCreate",async message=>{
 
 if(message.author.bot) return;
 
-const prefix = getPrefix(message);
+const prefix=getPrefix(message);
 if(!prefix) return;
 
-const args = message.content.slice(prefix.length).trim().split(/ +/);
-const cmd = args.shift().toLowerCase();
+const args=message.content.slice(prefix.length).trim().split(/ +/);
+const cmd=args.shift().toLowerCase();
 
-const user = getUser(message.author.id);
+const user=getUser(message.author.id);
 
-// ================= XP SYSTEM =================
+// XP SYSTEM
 
 user.xp++;
 
-const required = (user.level+1)*2500;
+const required=(user.level+1)*2500;
 
-if(user.xp >= required && user.level < 50){
+if(user.xp>=required && user.level<50){
 
 user.level++;
 
-const reward = user.level*5000;
+const reward=user.level*5000;
 
-user.wallet += reward;
+user.wallet+=reward;
 
 message.channel.send({
 
@@ -173,16 +159,40 @@ ${user.level-1} → ${user.level}
 💰 +${reward} Coins
 
 `)
-
 ]
 
 });
+
+const oldRank=getRank(user.level-1);
+const newRank=getRank(user.level);
+
+if(oldRank!==newRank){
+
+user.gems+=100;
+
+message.channel.send({
+
+embeds:[
+new EmbedBuilder()
+
+.setColor("Purple")
+
+.setTitle("👑 RANK UP")
+
+.setDescription(`${newRank} Rank Unlocked
+
+💎 +100 Gems`)
+]
+
+});
+
+}
 
 save();
 
 }
 
-// ================= HELP =================
+// HELP
 
 if(cmd==="help"){
 
@@ -219,14 +229,13 @@ s set
 s upgrade
 
 `)
-
 ]
 
 });
 
 }
 
-// ================= BAL =================
+// BAL
 
 if(cmd==="bal"||cmd==="balance"){
 
@@ -248,27 +257,56 @@ new EmbedBuilder()
 💎 Gems : ${user.gems}
 
 `)
-
 ]
 
 });
 
 }
 
-// ================= DAILY =================
+// RANK
+
+if(cmd==="rank"){
+
+return message.reply({
+
+embeds:[
+new EmbedBuilder()
+
+.setColor("Gold")
+
+.setTitle("🏆 RANK")
+
+.setDescription(`
+
+${message.author.username}
+
+Rank : ${getRank(user.level)}
+Level : ${user.level}
+
+XP
+${xpBar(user.xp,user.level)}
+
+`)
+]
+
+});
+
+}
+
+// DAILY
 
 if(cmd==="daily"){
 
-const now = Date.now();
-const cooldown = 86400000;
+const now=Date.now();
+const cooldown=86400000;
 
-if(now-user.lastDaily < cooldown){
+if(now-user.lastDaily<cooldown){
 
-const remaining = cooldown-(now-user.lastDaily);
+const remaining=cooldown-(now-user.lastDaily);
 
-const h = Math.floor(remaining/3600000);
-const m = Math.floor((remaining%3600000)/60000);
-const s = Math.floor((remaining%60000)/1000);
+const h=Math.floor(remaining/3600000);
+const m=Math.floor((remaining%3600000)/60000);
+const s=Math.floor((remaining%60000)/1000);
 
 return message.reply(`Next Daily In ${h}h ${m}m ${s}s`);
 
@@ -296,15 +334,17 @@ new EmbedBuilder()
 
 }
 
-// ================= DEPOSIT =================
+// DEPOSIT
 
 if(cmd==="deposit"){
 
-const amount = parseInt(args[0]);
+const amount=parseInt(args[0]);
 
-if(!amount) return message.reply("Enter amount");
+if(!amount || amount<=0)
+return message.reply("Enter valid amount");
 
-if(user.wallet < amount) return message.reply("Not enough coins");
+if(user.wallet<amount)
+return message.reply("Not enough coins");
 
 user.wallet-=amount;
 user.bank+=amount;
@@ -315,15 +355,17 @@ return message.reply(`🏦 Deposited ${amount}`);
 
 }
 
-// ================= WITHDRAW =================
+// WITHDRAW
 
 if(cmd==="withdraw"){
 
-const amount = parseInt(args[0]);
+const amount=parseInt(args[0]);
 
-if(!amount) return message.reply("Enter amount");
+if(!amount || amount<=0)
+return message.reply("Enter valid amount");
 
-if(user.bank < amount) return message.reply("Not enough coins");
+if(user.bank<amount)
+return message.reply("Not enough bank coins");
 
 user.bank-=amount;
 user.wallet+=amount;
@@ -334,148 +376,13 @@ return message.reply(`💸 Withdrawn ${amount}`);
 
 }
 
-// ================= PROFILE =================
-
-if(cmd==="profile"){
-
-const rank = getRank(user.level);
-const bar = xpBar(user.xp,user.level);
-
-return message.reply({
-
-embeds:[
-new EmbedBuilder()
-
-.setColor("Blue")
-
-.setTitle("👤 PLAYER PROFILE")
-
-.setThumbnail(message.author.displayAvatarURL())
-
-.setDescription(`
-
-🏆 Rank : ${rank}
-⭐ Level : ${user.level}
-
-⚡ XP
-${bar}
-
-━━━━━━━━━━━━━━
-
-💵 Wallet : ${user.wallet}
-🏦 Bank : ${user.bank}
-💎 Gems : ${user.gems}
-
-━━━━━━━━━━━━━━
-
-🐉 Dragon : ${user.equipped.dragon || "None"}
-⚔ Weapon : ${user.equipped.weapon || "None"}
-🛡 Armour : ${user.equipped.armour || "None"}
-
-`)
-
-]
-
-});
-
-}
-
-// ================= SHOP =================
-
-if(cmd==="shop"){
-
-const cat = args[0];
-
-if(!cat){
-
-return message.reply({
-
-embeds:[
-new EmbedBuilder()
-
-.setColor("Green")
-
-.setTitle("🏪 SHOP")
-
-.setDescription(`
-
-s shop dragons
-s shop weapons
-s shop armours
-
-`)
-
-]
-
-});
-
-}
-
-let items = shop[cat];
-
-if(!items) return message.reply("Invalid shop");
-
-let text="";
-
-for(let i in items){
-text+=`${items[i].name}
-💰 ${items[i].price}
-
-`;
-}
-
-return message.reply({
-
-embeds:[
-new EmbedBuilder()
-
-.setColor("Gold")
-
-.setTitle(`🏪 ${cat.toUpperCase()}`)
-
-.setDescription(text)
-
-]
-
-});
-
-}
-
-// ================= BUY =================
-
-if(cmd==="buy"){
-
-const cat=args[0];
-const item=args[1];
-
-if(cat==="dragon"){
-
-const data = shop.dragons[item];
-
-if(!data) return message.reply("Dragon not found");
-
-if(user.wallet < data.price)
-return message.reply("Not enough coins");
-
-user.wallet-=data.price;
-
-user.inventory.dragons[item]={level:1};
-
-save();
-
-return message.reply(`🐉 Bought ${data.name}`);
-
-}
-
-}
-
-// ================= INVENTORY =================
+// INVENTORY
 
 if(cmd==="inv"){
 
-const dragons = Object.keys(user.inventory.dragons).join("\n") || "None";
-const weapons = user.inventory.weapons.join("\n") || "None";
-const armours = user.inventory.armours.join("\n") || "None";
+const dragons=Object.keys(user.inventory.dragons).join("\n")||"None";
+const weapons=user.inventory.weapons.join("\n")||"None";
+const armours=user.inventory.armours.join("\n")||"None";
 
 return message.reply({
 
@@ -498,7 +405,6 @@ ${weapons}
 ${armours}
 
 `)
-
 ]
 
 });
