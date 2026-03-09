@@ -1,211 +1,193 @@
-// DEMO: Large Discord Economy Bot Scaffold (simulating 1000+ line project) // This file shows a condensed but feature‑rich structure used in big bots. // In real projects this would be split into many files.
+const { Client, GatewayIntentBits } = require("discord.js");
+const fs = require("fs");
 
-const { Client, GatewayIntentBits, EmbedBuilder } = require("discord.js"); const fs = require("fs"); require("dotenv").config();
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
+  ]
+});
 
-const client = new Client({ intents:[ GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent ] });
+const prefixList = ["s", "S", "spark", "Spark"];
+const DAILY_COOLDOWN = 86400000; // 24 hours
 
-// ================= CONFIG ================= const PREFIX="s"; const DAILY_COOLDOWN=86400000; const WORK_COOLDOWN=3600000;
+let db = JSON.parse(fs.readFileSync("./index.json", "utf8"));
 
-// ================= DATABASE ================= if(!fs.existsSync("./database")) fs.mkdirSync("./database"); if(!fs.existsSync("./database/users.json")) fs.writeFileSync("./database/users.json","{}");
+function saveDB() {
+  fs.writeFileSync("./index.json", JSON.stringify(db, null, 2));
+}
 
-let users = JSON.parse(fs.readFileSync("./database/users.json"));
+function getUser(id) {
+  if (!db.users[id]) {
+    db.users[id] = {
+      wallet: 0,
+      bank: 0,
+      gems: 0,
+      lastDaily: 0
+    };
+  }
+  return db.users[id];
+}
 
-function save(){ fs.writeFileSync("./database/users.json",JSON.stringify(users,null,2)); }
+client.on("messageCreate", async (message) => {
 
-function getUser(id){ if(!users[id]){ users[id]={ wallet:0, bank:0, gems:0, xp:0, level:0, inventory:[], lastDaily:0, lastWork:0, lastCrime:0, lastRob:0 }; } return users[id]; }
+  if (message.author.bot) return;
 
-// ================= LEVEL SYSTEM ================= function xpNeeded(level){ return (level+1)*2500; }
+  let prefixUsed = prefixList.find(p =>
+    message.content.toLowerCase().startsWith(p.toLowerCase())
+  );
 
-function xpBar(xp,level){ const need=xpNeeded(level); const percent=Math.floor((xp/need)*100); const bars=Math.floor(percent/10); return "█".repeat(bars)+"░".repeat(10-bars)+ ${percent}%; }
+  if (!prefixUsed) return;
 
-function addXP(user,amount){ user.xp+=amount; const need=xpNeeded(user.level);
+  const args = message.content.slice(prefixUsed.length).trim().split(/ +/);
+  const cmd = args.shift().toLowerCase();
 
-if(user.xp>=need){ user.level++; user.wallet+=user.level*1000; } }
+  const user = getUser(message.author.id);
 
-// ================= SHOP ================= const shop={ laptop:{price:15000,name:"💻 Laptop"}, phone:{price:8000,name:"📱 Phone"}, car:{price:50000,name:"🚗 Car"}, mansion:{price:200000,name:"🏠 Mansion"}, yacht:{price:500000,name:"🛥 Yacht"}, island:{price:1000000,name:"🏝 Private Island"} };
+  // BALANCE
+  if (cmd === "bal") {
 
-// ================= CASINO ================= function coinflip(user,bet){ const win=Math.random()<0.45;
+    message.reply(`
+━━━━━━━━━━━━━━━━━━━━━━
 
-if(win){ const reward=bet*2; user.wallet+=reward; return {result:"win",amount:reward}; }
+👤 ${message.author.username}
 
-return {result:"lose",amount:bet}; }
+💵 Wallet : ${user.wallet}
+🏦 Bank   : ${user.bank}
+💎 Gems   : ${user.gems}
 
-function slotMachine(bet){ const symbols=["💎","🍒","🍉","🥭"];
+━━━━━━━━━━━━━━━━━━━━━━
+`);
+  }
 
-const a=symbols[Math.floor(Math.random()*symbols.length)]; const b=symbols[Math.floor(Math.random()*symbols.length)]; const c=symbols[Math.floor(Math.random()*symbols.length)];
+  // DAILY
+  if (cmd === "daily") {
 
-if(a===b && b===c){ return {win:true,reward:bet*3,grid:${a}|${b}|${c}}; }
+    let now = Date.now();
 
-return {win:false,reward:0,grid:${a}|${b}|${c}}; }
+    if (now - user.lastDaily < DAILY_COOLDOWN) {
 
-// ================= JOB SYSTEM ================= function workReward(){ return 1000+Math.floor(Math.random()*3000); }
+      let remaining = DAILY_COOLDOWN - (now - user.lastDaily);
 
-function crimeAttempt(){ const success=Math.random()<0.5;
+      let hours = Math.floor(remaining / 3600000);
+      let minutes = Math.floor((remaining % 3600000) / 60000);
+      let seconds = Math.floor((remaining % 60000) / 1000);
 
-if(success){ return {success:true,reward:3000+Math.floor(Math.random()*4000)}; }
+      return message.reply(`
+━━━━━━━━━━━━━━━━━━━━━━
 
-return {success:false,loss:1500}; }
+You already claimed today's reward.
 
-// ================= EVENTS ================= client.once("ready",()=>{ console.log("Demo Economy Bot Ready: "+client.user.tag); });
+⏱ Next Daily In
+${hours}h ${minutes}m ${seconds}s
 
-client.on("messageCreate",async message=>{
+━━━━━━━━━━━━━━━━━━━━━━
+`);
+    }
 
-if(message.author.bot) return; if(!message.content.startsWith(PREFIX)) return;
+    user.wallet += 1000;
+    user.lastDaily = now;
+    saveDB();
 
-const args=message.content.slice(PREFIX.length).trim().split(/ +/); const cmd=args.shift().toLowerCase();
+    message.reply(`
+━━━━━━━━━━━━━━━━━━━━━━
 
-const user=getUser(message.author.id);
+🎁 Daily Reward Claimed
 
-addXP(user,5);
++1000 Coins added to wallet
 
-// ================= BAL ================= if(cmd==="bal"||cmd==="balance"){
+⏱ Come back again in 24h
 
-return message.reply( Wallet: ${user.wallet} Bank: ${user.bank} Level: ${user.level} XP: ${xpBar(user.xp,user.level)}); }
+━━━━━━━━━━━━━━━━━━━━━━
+`);
+  }
 
-// ================= DAILY ================= if(cmd==="daily"){
+  // GIVE
+  if (cmd === "give") {
 
-const now=Date.now();
+    let target = message.mentions.users.first();
+    let amount = parseInt(args[1]);
 
-if(now-user.lastDaily<DAILY_COOLDOWN) return message.reply("Come back tomorrow");
+    if (!target || isNaN(amount)) return;
 
-const reward=4000+Math.floor(Math.random()*4000);
+    if (user.wallet < amount) return message.reply("Not enough coins.");
 
-user.wallet+=reward; user.lastDaily=now;
+    const targetUser = getUser(target.id);
 
-save();
+    user.wallet -= amount;
+    targetUser.wallet += amount;
 
-return message.reply(Daily reward +${reward}); }
+    saveDB();
 
-// ================= DEPOSIT ================= if(cmd==="deposit"){
+    message.reply(`
+━━━━━━━━━━━━━━━━━━━━━━
 
-let amount=args[0];
+💸 Coins Sent
 
-if(amount==="all") amount=user.wallet;
+Sender : ${message.author.username}
+Receiver : ${target.username}
 
-amount=parseInt(amount);
+Amount : ${amount}
 
-if(user.wallet<amount) return message.reply("Not enough coins");
+━━━━━━━━━━━━━━━━━━━━━━
+`);
+  }
 
-user.wallet-=amount; user.bank+=amount;
+  // DEPOSIT
+  if (cmd === "deposit") {
 
-save();
+    let amount = parseInt(args[0]);
+    if (isNaN(amount)) return;
 
-return message.reply(Deposited ${amount}); }
+    if (user.wallet < amount) return message.reply("Not enough coins.");
 
-// ================= WITHDRAW ================= if(cmd==="withdraw"){
+    user.wallet -= amount;
+    user.bank += amount;
 
-let amount=args[0];
+    saveDB();
 
-if(amount==="all") amount=user.bank;
+    message.reply(`
+━━━━━━━━━━━━━━━━━━━━━━
 
-amount=parseInt(amount);
+🏦 Bank Deposit
 
-if(user.bank<amount) return message.reply("Not enough coins");
+Amount : ${amount}
 
-user.bank-=amount; user.wallet+=amount;
+💵 Wallet : ${user.wallet}
+🏦 Bank   : ${user.bank}
 
-save();
+━━━━━━━━━━━━━━━━━━━━━━
+`);
+  }
 
-return message.reply(Withdraw ${amount}); }
+  // WITHDRAW
+  if (cmd === "withdraw") {
 
-// ================= COINFLIP ================= if(cmd==="cf"){
+    let amount = parseInt(args[0]);
+    if (isNaN(amount)) return;
 
-const bet=parseInt(args[0]);
+    if (user.bank < amount) return message.reply("Not enough coins.");
 
-if(user.wallet<bet) return message.reply("Not enough coins");
+    user.bank -= amount;
+    user.wallet += amount;
 
-user.wallet-=bet;
+    saveDB();
 
-const game=coinflip(user,bet);
+    message.reply(`
+━━━━━━━━━━━━━━━━━━━━━━
 
-save();
+🏧 Bank Withdraw
 
-if(game.result==="win") return message.reply(Coinflip WIN +${game.amount});
+Amount : ${amount}
 
-return message.reply(Coinflip LOST -${bet}); }
+💵 Wallet : ${user.wallet}
+🏦 Bank   : ${user.bank}
 
-// ================= SLOT ================= if(cmd==="slot"){
-
-const bet=parseInt(args[0]);
-
-if(user.wallet<bet) return message.reply("Not enough coins");
-
-user.wallet-=bet;
-
-const game=slotMachine(bet);
-
-if(game.win){ user.wallet+=game.reward; save(); return message.reply(${game.grid} WIN +${game.reward}); }
-
-save(); return message.reply(${game.grid} LOSE); }
-
-// ================= WORK ================= if(cmd==="work"){
-
-const now=Date.now();
-
-if(now-user.lastWork<WORK_COOLDOWN) return message.reply("Work cooldown active");
-
-const reward=workReward();
-
-user.wallet+=reward; user.lastWork=now;
-
-save();
-
-return message.reply(You worked and earned ${reward}); }
-
-// ================= SHOP ================= if(cmd==="shop"){
-
-let text="SHOP\n";
-
-for(const item in shop){ text+=${shop[item].name} - ${shop[item].price}\n; }
-
-return message.reply(text); }
-
-// ================= BUY ================= if(cmd==="buy"){
-
-const item=args[0];
-
-if(!shop[item]) return message.reply("Item not found");
-
-const price=shop[item].price;
-
-if(user.wallet<price) return message.reply("Not enough coins");
-
-user.wallet-=price; user.inventory.push(item);
-
-save();
-
-return message.reply(Purchased ${shop[item].name}); }
-
-// ================= INVENTORY ================= if(cmd==="inventory"){
-
-if(user.inventory.length===0) return message.reply("Inventory empty");
-
-let text="Inventory\n";
-
-user.inventory.forEach(i=>{ text+=shop[i].name+"\n"; });
-
-return message.reply(text); }
-
-// ================= PROFILE ================= if(cmd==="profile"){
-
-const embed=new EmbedBuilder() .setTitle(${message.author.username} Profile) .setDescription(Wallet: ${user.wallet} Bank: ${user.bank} Level: ${user.level} XP: ${xpBar(user.xp,user.level)});
-
-return message.reply({embeds:[embed]}); }
-
-// ================= LEADERBOARD ================= if(cmd==="leaderboard"){
-
-const top=Object.entries(users) .sort((a,b)=>(b[1].wallet+b[1].bank)-(a[1].wallet+a[1].bank)) .slice(0,10);
-
-let text="Leaderboard\n";
-
-top.forEach((u,i)=>{ text+=${i+1}. <@${u[0]}> - ${u[1].wallet+u[1].bank}\n; });
-
-return message.reply(text); }
-
-save();
+━━━━━━━━━━━━━━━━━━━━━━
+`);
+  }
 
 });
 
-client.login(process.env.TOKEN);
-
-// NOTE: // In a real 1000+ line bot this logic would be split into many files: // commands/, events/, economy/, casino/, jobs/, utils/, database/ etc.
+client.login("YOUR_BOT_TOKEN");
