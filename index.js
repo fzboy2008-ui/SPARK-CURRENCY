@@ -1,744 +1,211 @@
-const { Client, GatewayIntentBits, EmbedBuilder } = require("discord.js");
-const fs = require("fs");
-require("dotenv").config();
+// DEMO: Large Discord Economy Bot Scaffold (simulating 1000+ line project) // This file shows a condensed but feature‑rich structure used in big bots. // In real projects this would be split into many files.
 
-const client = new Client({
-intents:[
-GatewayIntentBits.Guilds,
-GatewayIntentBits.GuildMessages,
-GatewayIntentBits.MessageContent
-]
-});
+const { Client, GatewayIntentBits, EmbedBuilder } = require("discord.js"); const fs = require("fs"); require("dotenv").config();
 
-const PREFIXES = ["s","spark"];
-const MAX_BET = 100000;
+const client = new Client({ intents:[ GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent ] });
 
-// ================= PREFIX =================
+// ================= CONFIG ================= const PREFIX="s"; const DAILY_COOLDOWN=86400000; const WORK_COOLDOWN=3600000;
 
-function getPrefix(message){
-
-const msg = message.content.toLowerCase();
-
-for(const p of PREFIXES){
-if(msg.startsWith(p+" ")) return p;
-}
-
-}
-
-// ================= DATABASE =================
-
-if(!fs.existsSync("./database")) fs.mkdirSync("./database");
-
-if(!fs.existsSync("./database/users.json"))
-fs.writeFileSync("./database/users.json","{}");
+// ================= DATABASE ================= if(!fs.existsSync("./database")) fs.mkdirSync("./database"); if(!fs.existsSync("./database/users.json")) fs.writeFileSync("./database/users.json","{}");
 
 let users = JSON.parse(fs.readFileSync("./database/users.json"));
 
-function save(){
-fs.writeFileSync("./database/users.json",JSON.stringify(users,null,2));
-}
+function save(){ fs.writeFileSync("./database/users.json",JSON.stringify(users,null,2)); }
 
-function getUser(id){
+function getUser(id){ if(!users[id]){ users[id]={ wallet:0, bank:0, gems:0, xp:0, level:0, inventory:[], lastDaily:0, lastWork:0, lastCrime:0, lastRob:0 }; } return users[id]; }
 
-if(!users[id]){
+// ================= LEVEL SYSTEM ================= function xpNeeded(level){ return (level+1)*2500; }
 
-users[id] = {
-wallet:0,
-bank:0,
-gems:0,
-xp:0,
-level:0,
-inventory:[],
-lastDaily:0,
-lastWork:0,
-lastCrime:0,
-lastRob:0
-};
+function xpBar(xp,level){ const need=xpNeeded(level); const percent=Math.floor((xp/need)*100); const bars=Math.floor(percent/10); return "█".repeat(bars)+"░".repeat(10-bars)+ ${percent}%; }
 
-}
+function addXP(user,amount){ user.xp+=amount; const need=xpNeeded(user.level);
 
-return users[id];
+if(user.xp>=need){ user.level++; user.wallet+=user.level*1000; } }
 
-}
+// ================= SHOP ================= const shop={ laptop:{price:15000,name:"💻 Laptop"}, phone:{price:8000,name:"📱 Phone"}, car:{price:50000,name:"🚗 Car"}, mansion:{price:200000,name:"🏠 Mansion"}, yacht:{price:500000,name:"🛥 Yacht"}, island:{price:1000000,name:"🏝 Private Island"} };
 
-// ================= RANK =================
+// ================= CASINO ================= function coinflip(user,bet){ const win=Math.random()<0.45;
 
-function getRank(level){
+if(win){ const reward=bet*2; user.wallet+=reward; return {result:"win",amount:reward}; }
 
-if(level>=41) return "👑 Mythic";
-if(level>=31) return "💎 Diamond";
-if(level>=21) return "🥇 Gold";
-if(level>=11) return "🥈 Silver";
-return "🥉 Bronze";
+return {result:"lose",amount:bet}; }
 
-}
+function slotMachine(bet){ const symbols=["💎","🍒","🍉","🥭"];
 
-// ================= XP BAR =================
+const a=symbols[Math.floor(Math.random()*symbols.length)]; const b=symbols[Math.floor(Math.random()*symbols.length)]; const c=symbols[Math.floor(Math.random()*symbols.length)];
 
-function xpBar(xp,level){
+if(a===b && b===c){ return {win:true,reward:bet*3,grid:${a}|${b}|${c}}; }
 
-const required = (level+1)*2500;
+return {win:false,reward:0,grid:${a}|${b}|${c}}; }
 
-const percent = Math.floor((xp/required)*100);
+// ================= JOB SYSTEM ================= function workReward(){ return 1000+Math.floor(Math.random()*3000); }
 
-const filled = Math.floor(percent/10);
+function crimeAttempt(){ const success=Math.random()<0.5;
 
-const bar = "█".repeat(filled)+"░".repeat(10-filled);
+if(success){ return {success:true,reward:3000+Math.floor(Math.random()*4000)}; }
 
-return `${bar} ${percent}%`;
+return {success:false,loss:1500}; }
 
-}
-
-// ================= READY =================
-
-client.once("ready",()=>{
-console.log("⚡ Spark Bot V6 Online: "+client.user.tag);
-});
-
-// ================= MESSAGE =================
+// ================= EVENTS ================= client.once("ready",()=>{ console.log("Demo Economy Bot Ready: "+client.user.tag); });
 
 client.on("messageCreate",async message=>{
 
-if(message.author.bot) return;
+if(message.author.bot) return; if(!message.content.startsWith(PREFIX)) return;
 
-const prefix = getPrefix(message);
+const args=message.content.slice(PREFIX.length).trim().split(/ +/); const cmd=args.shift().toLowerCase();
 
-if(!prefix) return;
+const user=getUser(message.author.id);
 
-const args = message.content.slice(prefix.length).trim().split(/ +/);
+addXP(user,5);
 
-const cmd = args.shift().toLowerCase();
+// ================= BAL ================= if(cmd==="bal"||cmd==="balance"){
 
-const user = getUser(message.author.id);
+return message.reply( Wallet: ${user.wallet} Bank: ${user.bank} Level: ${user.level} XP: ${xpBar(user.xp,user.level)}); }
 
-// ================= XP SYSTEM =================
+// ================= DAILY ================= if(cmd==="daily"){
 
-user.xp += 1;
+const now=Date.now();
 
-const required = (user.level+1)*2500;
+if(now-user.lastDaily<DAILY_COOLDOWN) return message.reply("Come back tomorrow");
 
-if(user.xp >= required && user.level < 50){
+const reward=4000+Math.floor(Math.random()*4000);
 
-user.level++;
-
-const reward = user.level*5000;
-
-user.wallet += reward;
-
-const oldRank = getRank(user.level-1);
-const newRank = getRank(user.level);
-
-const lvlEmbed = new EmbedBuilder()
-.setColor("Green")
-.setTitle("⭐ LEVEL UP")
-.setDescription(`━━━━━━━━━━━━━━━━━━━━━━
-
-${message.author.username}
-
-${user.level-1} → ${user.level}
-
-💰 Reward
-+${reward} Coins
-
-━━━━━━━━━━━━━━━━━━━━━━`);
-
-message.channel.send({embeds:[lvlEmbed]});
-
-if(oldRank !== newRank){
-
-user.gems += 100;
-
-const rankEmbed = new EmbedBuilder()
-.setColor("Purple")
-.setTitle("👑 RANK UP")
-.setDescription(`━━━━━━━━━━━━━━━━━━━━━━
-
-${message.author.username}
-
-${newRank} Rank Unlocked
-
-💎 +100 Gems
-
-━━━━━━━━━━━━━━━━━━━━━━`);
-
-message.channel.send({embeds:[rankEmbed]});
-
-}
+user.wallet+=reward; user.lastDaily=now;
 
 save();
 
-}
+return message.reply(Daily reward +${reward}); }
 
-// ================= HELP =================
+// ================= DEPOSIT ================= if(cmd==="deposit"){
 
-if(cmd==="help"){
+let amount=args[0];
 
-const embed = new EmbedBuilder()
+if(amount==="all") amount=user.wallet;
 
-.setColor("Blue")
-.setTitle("⚡ SPARK BOT COMMANDS")
+amount=parseInt(amount);
 
-.setDescription(`━━━━━━━━━━━━━━━━━━━━━━
+if(user.wallet<amount) return message.reply("Not enough coins");
 
-💰 ECONOMY
-s bal
-s daily
-s deposit <amount>
-s withdraw <amount>
-s pay <user> <amount>
-
-🎰 CASINO
-s cf <amount/all>
-s slot <amount/all>
-
-💼 JOBS
-s work
-s crime
-s rob <user>
-
-🛒 SHOP
-s shop
-s buy <item>
-s inventory
-
-👤 PLAYER
-s profile
-s rank
-s leaderboard
-
-━━━━━━━━━━━━━━━━━━━━━━`);
-
-return message.reply({embeds:[embed]});
-
-}
-
-// ================= BAL =================
-
-if(cmd==="bal"||cmd==="balance"){
-
-const embed = new EmbedBuilder()
-
-.setColor("Gold")
-.setTitle("💰 SPARK BALANCE")
-
-.setDescription(`━━━━━━━━━━━━━━━━━━━━━━
-
-👤 ${message.author.username}
-
-💵 Wallet : ${user.wallet}
-🏦 Bank   : ${user.bank}
-💎 Gems   : ${user.gems}
-
-━━━━━━━━━━━━━━━━━━━━━━`);
-
-return message.reply({embeds:[embed]});
-
-   }
- // ================= DAILY =================
-
-if(cmd==="daily"){
-
-const now = Date.now();
-
-const cooldown = 86400000;
-
-if(now - user.lastDaily < cooldown){
-
-const time = cooldown - (now-user.lastDaily);
-
-const hours = Math.floor(time/3600000);
-
-return message.reply(`⏳ Daily already claimed\nCome back in ${hours}h`);
-
-}
-
-const reward = 5000 + Math.floor(Math.random()*5000);
-
-user.wallet += reward;
-
-user.lastDaily = now;
+user.wallet-=amount; user.bank+=amount;
 
 save();
 
-const embed = new EmbedBuilder()
+return message.reply(Deposited ${amount}); }
 
-.setColor("Green")
+// ================= WITHDRAW ================= if(cmd==="withdraw"){
 
-.setTitle("🎁 DAILY REWARD")
+let amount=args[0];
 
-.setDescription(`━━━━━━━━━━━━━━━━━━━━━━
+if(amount==="all") amount=user.bank;
 
-💰 +${reward} Coins
+amount=parseInt(amount);
 
-Come back tomorrow!
+if(user.bank<amount) return message.reply("Not enough coins");
 
-━━━━━━━━━━━━━━━━━━━━━━`);
-
-return message.reply({embeds:[embed]});
-
-}
-
-// ================= DEPOSIT =================
-
-if(cmd==="deposit"){
-
-let amount = args[0];
-
-if(!amount) return message.reply("Enter amount");
-
-if(amount==="all") amount = user.wallet;
-
-amount = parseInt(amount);
-
-if(isNaN(amount) || amount<=0)
-return message.reply("Invalid amount");
-
-if(user.wallet < amount)
-return message.reply("Not enough wallet coins");
-
-user.wallet -= amount;
-
-user.bank += amount;
+user.bank-=amount; user.wallet+=amount;
 
 save();
 
-return message.reply(`🏦 Deposited ${amount} coins`);
+return message.reply(Withdraw ${amount}); }
 
-}
+// ================= COINFLIP ================= if(cmd==="cf"){
 
-// ================= WITHDRAW =================
+const bet=parseInt(args[0]);
 
-if(cmd==="withdraw"){
+if(user.wallet<bet) return message.reply("Not enough coins");
 
-let amount = args[0];
+user.wallet-=bet;
 
-if(!amount) return message.reply("Enter amount");
-
-if(amount==="all") amount = user.bank;
-
-amount = parseInt(amount);
-
-if(isNaN(amount) || amount<=0)
-return message.reply("Invalid amount");
-
-if(user.bank < amount)
-return message.reply("Not enough bank coins");
-
-user.bank -= amount;
-
-user.wallet += amount;
+const game=coinflip(user,bet);
 
 save();
 
-return message.reply(`💵 Withdrawn ${amount} coins`);
+if(game.result==="win") return message.reply(Coinflip WIN +${game.amount});
 
-}
+return message.reply(Coinflip LOST -${bet}); }
 
-// ================= COINFLIP =================
+// ================= SLOT ================= if(cmd==="slot"){
 
-if(cmd==="cf"||cmd==="coinflip"){
+const bet=parseInt(args[0]);
 
-let amount = args[0];
+if(user.wallet<bet) return message.reply("Not enough coins");
 
-if(!amount) return message.reply("Enter bet amount");
+user.wallet-=bet;
 
-if(amount==="all") amount = user.wallet;
+const game=slotMachine(bet);
 
-amount = parseInt(amount);
+if(game.win){ user.wallet+=game.reward; save(); return message.reply(${game.grid} WIN +${game.reward}); }
 
-if(isNaN(amount) || amount<=0)
-return message.reply("Invalid bet");
+save(); return message.reply(${game.grid} LOSE); }
 
-if(amount > MAX_BET)
-return message.reply(`Max bet is ${MAX_BET}`);
+// ================= WORK ================= if(cmd==="work"){
 
-if(user.wallet < amount)
-return message.reply("Not enough coins");
+const now=Date.now();
 
-user.wallet -= amount;
+if(now-user.lastWork<WORK_COOLDOWN) return message.reply("Work cooldown active");
 
-const win = Math.random() < 0.25;
+const reward=workReward();
 
-if(win){
-
-const reward = amount*2;
-
-user.wallet += reward;
+user.wallet+=reward; user.lastWork=now;
 
 save();
 
-return message.reply(`🪙 Coinflip WIN\n+${reward} coins`);
+return message.reply(You worked and earned ${reward}); }
 
-}else{
+// ================= SHOP ================= if(cmd==="shop"){
 
-save();
+let text="SHOP\n";
 
-return message.reply(`💀 Coinflip LOST\n-${amount} coins`);
+for(const item in shop){ text+=${shop[item].name} - ${shop[item].price}\n; }
 
-}
+return message.reply(text); }
 
-}
+// ================= BUY ================= if(cmd==="buy"){
 
-// ================= SLOT =================
+const item=args[0];
 
-if(cmd==="slot"){
+if(!shop[item]) return message.reply("Item not found");
 
-let amount = args[0];
+const price=shop[item].price;
 
-if(!amount) return message.reply("Enter bet");
+if(user.wallet<price) return message.reply("Not enough coins");
 
-if(amount==="all") amount = user.wallet;
-
-amount = parseInt(amount);
-
-if(isNaN(amount)||amount<=0)
-return message.reply("Invalid bet");
-
-if(amount > MAX_BET)
-return message.reply(`Max bet ${MAX_BET}`);
-
-if(user.wallet < amount)
-return message.reply("Not enough coins");
-
-user.wallet -= amount;
-
-const symbols = ["💎","🥭","🍒","🍉"];
-
-const a = symbols[Math.floor(Math.random()*symbols.length)];
-
-const b = symbols[Math.floor(Math.random()*symbols.length)];
-
-const c = symbols[Math.floor(Math.random()*symbols.length)];
-
-let multiplier = 0;
-
-if(a===b && b===c){
-
-if(a==="💎") multiplier=3;
-
-else if(a==="🥭") multiplier=2;
-
-else if(a==="🍒") multiplier=2;
-
-else if(a==="🍉") multiplier=1;
-
-}
-
-if(multiplier>0){
-
-const win = amount*multiplier;
-
-user.wallet += win;
+user.wallet-=price; user.inventory.push(item);
 
 save();
 
-return message.reply(`🎰 ${a} | ${b} | ${c}\nWIN +${win}`);
+return message.reply(Purchased ${shop[item].name}); }
 
-}else{
+// ================= INVENTORY ================= if(cmd==="inventory"){
 
-save();
+if(user.inventory.length===0) return message.reply("Inventory empty");
 
-return message.reply(`🎰 ${a} | ${b} | ${c}\nLOSE -${amount}`);
+let text="Inventory\n";
 
-}
+user.inventory.forEach(i=>{ text+=shop[i].name+"\n"; });
 
-}
-// ================= WORK =================
+return message.reply(text); }
 
-if(cmd==="work"){
+// ================= PROFILE ================= if(cmd==="profile"){
 
-const now = Date.now();
+const embed=new EmbedBuilder() .setTitle(${message.author.username} Profile) .setDescription(Wallet: ${user.wallet} Bank: ${user.bank} Level: ${user.level} XP: ${xpBar(user.xp,user.level)});
 
-const cooldown = 3600000;
+return message.reply({embeds:[embed]}); }
 
-if(now - user.lastWork < cooldown){
+// ================= LEADERBOARD ================= if(cmd==="leaderboard"){
 
-const time = cooldown - (now-user.lastWork);
+const top=Object.entries(users) .sort((a,b)=>(b[1].wallet+b[1].bank)-(a[1].wallet+a[1].bank)) .slice(0,10);
 
-const mins = Math.floor(time/60000);
+let text="Leaderboard\n";
 
-return message.reply(`⏳ You are tired\nTry again in ${mins}m`);
+top.forEach((u,i)=>{ text+=${i+1}. <@${u[0]}> - ${u[1].wallet+u[1].bank}\n; });
 
-}
-
-const reward = 1000 + Math.floor(Math.random()*2000);
-
-user.wallet += reward;
-
-user.lastWork = now;
+return message.reply(text); }
 
 save();
-
-return message.reply(`💼 You worked and earned ${reward} coins`);
-
-}
-
-// ================= CRIME =================
-
-if(cmd==="crime"){
-
-const now = Date.now();
-
-const cooldown = 7200000;
-
-if(now - user.lastCrime < cooldown){
-
-const time = cooldown - (now-user.lastCrime);
-
-const mins = Math.floor(time/60000);
-
-return message.reply(`🚔 Lay low\nTry again in ${mins}m`);
-
-}
-
-const success = Math.random() < 0.5;
-
-if(success){
-
-const reward = 2000 + Math.floor(Math.random()*4000);
-
-user.wallet += reward;
-
-user.lastCrime = now;
-
-save();
-
-return message.reply(`🔫 Crime success\n+${reward} coins`);
-
-}else{
-
-const loss = 1000 + Math.floor(Math.random()*2000);
-
-user.wallet = Math.max(0,user.wallet-loss);
-
-user.lastCrime = now;
-
-save();
-
-return message.reply(`🚓 You got caught\n-${loss} coins`);
-
-}
-
-}
-
-// ================= ROB =================
-
-if(cmd==="rob"){
-
-const target = message.mentions.users.first();
-
-if(!target) return message.reply("Mention user to rob");
-
-if(target.id===message.author.id)
-return message.reply("You can't rob yourself");
-
-const victim = getUser(target.id);
-
-if(victim.wallet < 1000)
-return message.reply("Target too poor");
-
-const now = Date.now();
-
-const cooldown = 10800000;
-
-if(now - user.lastRob < cooldown){
-
-const time = cooldown - (now-user.lastRob);
-
-const mins = Math.floor(time/60000);
-
-return message.reply(`⏳ Rob cooldown\n${mins}m left`);
-
-}
-
-const success = Math.random() < 0.4;
-
-if(success){
-
-const steal = Math.floor(victim.wallet*0.3);
-
-victim.wallet -= steal;
-
-user.wallet += steal;
-
-save();
-
-return message.reply(`🗡 Rob success\nStole ${steal} coins`);
-
-}else{
-
-const fine = 1000;
-
-user.wallet = Math.max(0,user.wallet-fine);
-
-save();
-
-return message.reply(`🚓 Rob failed\nYou paid ${fine} coins`);
-
-}
-
-}
-
-// ================= PAY =================
-
-if(cmd==="pay"){
-
-const target = message.mentions.users.first();
-
-if(!target) return message.reply("Mention user");
-
-if(target.id===message.author.id)
-return message.reply("You can't pay yourself");
-
-const amount = parseInt(args[1]);
-
-if(!amount || amount<=0)
-return message.reply("Invalid amount");
-
-if(user.wallet < amount)
-return message.reply("Not enough coins");
-
-const receiver = getUser(target.id);
-
-user.wallet -= amount;
-
-receiver.wallet += amount;
-
-save();
-
-return message.reply(`💸 Paid ${amount} coins to ${target.username}`);
-
- }
-// ================= SHOP =================
-
-const shop = {
-
-laptop:{price:15000,name:"💻 Laptop"},
-phone:{price:8000,name:"📱 Phone"},
-car:{price:50000,name:"🚗 Car"},
-mansion:{price:200000,name:"🏠 Mansion"}
-
-};
-
-if(cmd==="shop"){
-
-let text="🛒 SHOP\n\n";
-
-for(const item in shop){
-
-text+=`${shop[item].name} — ${shop[item].price} coins\n`;
-
-}
-
-return message.reply(text);
-
-}
-
-// ================= BUY =================
-
-if(cmd==="buy"){
-
-const item = args[0];
-
-if(!shop[item])
-return message.reply("Item not found");
-
-const price = shop[item].price;
-
-if(user.wallet < price)
-return message.reply("Not enough coins");
-
-user.wallet -= price;
-
-if(!user.inventory) user.inventory=[];
-
-user.inventory.push(item);
-
-save();
-
-return message.reply(`✅ Bought ${shop[item].name}`);
-
-}
-
-// ================= INVENTORY =================
-
-if(cmd==="inventory"||cmd==="inv"){
-
-if(!user.inventory || user.inventory.length===0)
-return message.reply("Inventory empty");
-
-let text="🎒 INVENTORY\n\n";
-
-user.inventory.forEach(i=>{
-
-text+=`${shop[i].name}\n`;
 
 });
 
-return message.reply(text);
+client.login(process.env.TOKEN);
 
-}
-
-// ================= PROFILE =================
-
-if(cmd==="profile"){
-
-const target = message.mentions.users.first() || message.author;
-
-const data = getUser(target.id);
-
-const embed = new EmbedBuilder()
-
-.setColor("Blue")
-
-.setTitle(`${target.username} Profile`)
-
-.setDescription(`
-
-💰 Wallet: ${data.wallet}
-
-🏦 Bank: ${data.bank}
-
-🎒 Items: ${data.inventory ? data.inventory.length : 0}
-
-`);
-
-return message.reply({embeds:[embed]});
-
-}
-
-// ================= LEADERBOARD =================
-
-if(cmd==="leaderboard"||cmd==="lb"){
-
-const top = Object.entries(db)
-
-.sort((a,b)=>(b[1].wallet+b[1].bank)-(a[1].wallet+a[1].bank))
-
-.slice(0,10);
-
-let text="🏆 LEADERBOARD\n\n";
-
-top.forEach((u,i)=>{
-
-text+=`${i+1}. <@${u[0]}> — ${u[1].wallet+u[1].bank}\n`;
-
-});
-
-return message.reply(text);
-
-}
-
-// ================= RANK =================
-
-if(cmd==="rank"){
-
-const users = Object.entries(db)
-
-.sort((a,b)=>(b[1].wallet+b[1].bank)-(a[1].wallet+a[1].bank]);
-
-const pos = users.findIndex(u=>u[0]===message.author.id)+1;
-
-return message.reply(`🏅 Your rank: ${pos}/${users.length}`);
-
-                                      }
+// NOTE: // In a real 1000+ line bot this logic would be split into many files: // commands/, events/, economy/, casino/, jobs/, utils/, database/ etc.
