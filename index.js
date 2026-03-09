@@ -1,609 +1,497 @@
-import discord
-from discord.ext import commands
-import json
-import random
-import os
+const { 
+ Client,
+ GatewayIntentBits,
+ EmbedBuilder
+} = require("discord.js");
 
-intents = discord.Intents.default()
-intents.message_content = True
+const fs = require("fs");
 
-bot = commands.Bot(command_prefix="!", intents=intents)
+const client = new Client({
+ intents:[
+  GatewayIntentBits.Guilds,
+  GatewayIntentBits.GuildMessages,
+  GatewayIntentBits.MessageContent
+ ]
+});
 
-DATA_FILE = "players.json"
+const prefix = "s ";
 
-# -----------------------------
-# Data System
-# -----------------------------
+let users = {};
 
-def load_data():
-    if not os.path.exists(DATA_FILE):
-        with open(DATA_FILE, "w") as f:
-            json.dump({}, f)
+if(fs.existsSync("users.json")){
+ users = JSON.parse(fs.readFileSync("users.json"));
+}
 
-    with open(DATA_FILE, "r") as f:
-        return json.load(f)
+function save(){
+ fs.writeFileSync("users.json",JSON.stringify(users,null,2));
+}
 
-def save_data(data):
-    with open(DATA_FILE, "w") as f:
-        json.dump(data, f, indent=4)
+function getUser(id){
 
-def create_player(user_id):
+ if(!users[id]){
 
-    data = load_data()
+  users[id] = {
 
-    if str(user_id) not in data:
-        data[str(user_id)] = {
-            "coins": 100,
-            "xp": 0,
-            "level": 1,
-            "hp": 100,
-            "attack": 10,
-            "defense": 5,
-            "inventory": [],
-            "weapon": None,
-            "armor": None
-        }
+   wallet:0,
+   bank:0,
+   gems:0,
 
-        save_data(data)
+   xp:0,
+   level:1,
 
-# -----------------------------
-# Level System
-# -----------------------------
+   battleWins:0,
+   battleLoss:0,
 
-def add_xp(user_id, amount):
+   inventory:[],
 
-    data = load_data()
-    player = data[str(user_id)]
+   lastDaily:0,
+   lastWork:0
 
-    player["xp"] += amount
+  };
 
-    level_up = player["level"] * 100
+ }
 
-    if player["xp"] >= level_up:
-
-        player["level"] += 1
-        player["xp"] = 0
-        player["hp"] += 10
-        player["attack"] += 2
-        player["defense"] += 2
-
-    save_data(data)
-
-# -----------------------------
-# Bot Ready
-# -----------------------------
-
-@bot.event
-async def on_ready():
-    print("RPG BOT V5 ONLINE")
-
-# -----------------------------
-# Profile Command
-# -----------------------------
-
-@bot.command()
-async def profile(ctx):
-
-    create_player(ctx.author.id)
-
-    data = load_data()
-    p = data[str(ctx.author.id)]
-
-    embed = discord.Embed(
-        title=f"{ctx.author.name} Profile",
-        color=discord.Color.blue()
-    )
-
-    embed.add_field(name="Level", value=p["level"])
-    embed.add_field(name="XP", value=p["xp"])
-    embed.add_field(name="Coins", value=p["coins"])
-
-    embed.add_field(name="HP", value=p["hp"])
-    embed.add_field(name="Attack", value=p["attack"])
-    embed.add_field(name="Defense", value=p["defense"])
-
-    weapon = p["weapon"] if p["weapon"] else "None"
-    armor = p["armor"] if p["armor"] else "None"
-
-    embed.add_field(name="Weapon", value=weapon)
-    embed.add_field(name="Armor", value=armor)
-
-    await ctx.send(embed=embed)
-
-# -----------------------------
-# Daily Command
-# -----------------------------
-
-@bot.command()
-async def daily(ctx):
-
-    create_player(ctx.author.id)
-
-    data = load_data()
-    reward = random.randint(50,150)
-
-    data[str(ctx.author.id)]["coins"] += reward
-
-    save_data(data)
-
-    embed = discord.Embed(
-        title="Daily Reward",
-        description=f"You received **{reward} coins**",
-        color=discord.Color.green()
-    )
-
-    await ctx.send(embed=embed)
-
-# -----------------------------
-# Work Command
-# -----------------------------
-
-@bot.command()
-async def work(ctx):
-
-    create_player(ctx.author.id)
-
-    reward = random.randint(20,80)
-
-    data = load_data()
-    data[str(ctx.author.id)]["coins"] += reward
-
-    save_data(data)
-
-    embed = discord.Embed(
-        title="Work Complete",
-        description=f"You earned **{reward} coins**",
-        color=discord.Color.orange()
-    )
-
-    await ctx.send(embed=embed)
-
-# -----------------------------
-# Shop System
-# -----------------------------
-
-shop_items = {
-
-    "sword":{
-        "price":200,
-        "attack":5
-    },
-
-    "greatsword":{
-        "price":500,
-        "attack":10
-    },
-
-    "armor":{
-        "price":300,
-        "defense":5
-    },
-
-    "knight_armor":{
-        "price":700,
-        "defense":10
-    }
+ return users[id];
 
 }
 
-@bot.command()
-async def shop(ctx):
+function addXP(id,amount){
 
-    embed = discord.Embed(
-        title="RPG Shop",
-        color=discord.Color.gold()
-    )
+ let user = getUser(id);
 
-    for item in shop_items:
-        embed.add_field(
-            name=item,
-            value=f"Price: {shop_items[item]['price']}",
-            inline=False
-        )
+ user.xp += amount;
 
-    await ctx.send(embed=embed)
+ let need = user.level * 100;
 
-# -----------------------------
-# Buy Command
-# -----------------------------
+ if(user.xp >= need){
 
-@bot.command()
-async def buy(ctx,item):
+  user.xp = 0;
+  user.level += 1;
 
-    create_player(ctx.author.id)
+ }
 
-    if item not in shop_items:
-        await ctx.send("Item not found")
-        return
-
-    data = load_data()
-    player = data[str(ctx.author.id)]
-
-    price = shop_items[item]["price"]
-
-    if player["coins"] < price:
-        await ctx.send("Not enough coins")
-        return
-
-    player["coins"] -= price
-    player["inventory"].append(item)
-
-    save_data(data)
-
-    embed = discord.Embed(
-        title="Item Purchased",
-        description=f"You bought **{item}**",
-        color=discord.Color.green()
-    )
-
-    await ctx.send(embed=embed)
-
-# -----------------------------
-# Inventory
-# -----------------------------
-
-@bot.command()
-async def inventory(ctx):
-
-    create_player(ctx.author.id)
-
-    data = load_data()
-    items = data[str(ctx.author.id)]["inventory"]
-
-    if not items:
-        await ctx.send("Inventory empty")
-        return
-
-    embed = discord.Embed(
-        title="Inventory",
-        description="\n".join(items),
-        color=discord.Color.blue()
-    )
-
-    await ctx.send(embed=embed)
-
-# -----------------------------
-# Equip System
-# -----------------------------
-
-@bot.command()
-async def equip(ctx,item):
-
-    create_player(ctx.author.id)
-
-    data = load_data()
-    player = data[str(ctx.author.id)]
-
-    if item not in player["inventory"]:
-        await ctx.send("You don't own this item")
-        return
-
-    if "sword" in item:
-        player["weapon"] = item
-
-    if "armor" in item:
-        player["armor"] = item
-
-    save_data(data)
-
-    await ctx.send(f"{item} equipped")
-
-# -----------------------------
-# Adventure Command
-# -----------------------------
-
-@bot.command()
-async def adventure(ctx):
-
-    create_player(ctx.author.id)
-
-    monster = random.choice(["Slime","Goblin","Wolf"])
-    reward = random.randint(30,100)
-    xp = random.randint(20,60)
-
-    data = load_data()
-    data[str(ctx.author.id)]["coins"] += reward
-
-    save_data(data)
-
-    add_xp(ctx.author.id,xp)
-
-    embed = discord.Embed(
-        title="Adventure",
-        description=f"You defeated a **{monster}**",
-        color=discord.Color.red()
-    )
-
-    embed.add_field(name="Coins",value=reward)
-    embed.add_field(name="XP",value=xp)
-
-    await ctx.send(embed=embed)
-
-bot.run("YOUR_TOKEN")
-# -----------------------------
-# Sell System
-# -----------------------------
-
-@bot.command()
-async def sell(ctx,item):
-
-    create_player(ctx.author.id)
-
-    data = load_data()
-    player = data[str(ctx.author.id)]
-
-    if item not in player["inventory"]:
-        await ctx.send("You don't own this item")
-        return
-
-    price = int(shop_items.get(item,{}).get("price",50) * 0.5)
-
-    player["coins"] += price
-    player["inventory"].remove(item)
-
-    save_data(data)
-
-    embed = discord.Embed(
-        title="Item Sold",
-        description=f"You sold **{item}** for **{price} coins**",
-        color=discord.Color.orange()
-    )
-
-    await ctx.send(embed=embed)
-
-# -----------------------------
-# Leaderboard
-# -----------------------------
-
-@bot.command()
-async def leaderboard(ctx):
-
-    data = load_data()
-
-    sorted_players = sorted(
-        data.items(),
-        key=lambda x: x[1]["level"],
-        reverse=True
-    )
-
-    embed = discord.Embed(
-        title="Top Players",
-        color=discord.Color.gold()
-    )
-
-    for i,(uid,player) in enumerate(sorted_players[:10],start=1):
-
-        embed.add_field(
-            name=f"#{i}",
-            value=f"<@{uid}> | Level {player['level']}",
-            inline=False
-        )
-
-    await ctx.send(embed=embed)
-
-# -----------------------------
-# Quest System
-# -----------------------------
-
-quests = {
-
-    "hunt_slime":{
-        "xp":50,
-        "coins":80
-    },
-
-    "kill_goblin":{
-        "xp":80,
-        "coins":120
-    }
+ save();
 
 }
 
-@bot.command()
-async def quests(ctx):
+function addGems(id,amount){
 
-    embed = discord.Embed(
-        title="Available Quests",
-        color=discord.Color.purple()
-    )
+ let user = getUser(id);
 
-    for q in quests:
+ user.gems += amount;
 
-        embed.add_field(
-            name=q,
-            value=f"XP: {quests[q]['xp']} | Coins: {quests[q]['coins']}",
-            inline=False
-        )
-
-    await ctx.send(embed=embed)
-
-@bot.command()
-async def quest(ctx,name):
-
-    create_player(ctx.author.id)
-
-    if name not in quests:
-        await ctx.send("Quest not found")
-        return
-
-    reward = quests[name]
-
-    data = load_data()
-    data[str(ctx.author.id)]["coins"] += reward["coins"]
-
-    save_data(data)
-
-    add_xp(ctx.author.id,reward["xp"])
-
-    embed = discord.Embed(
-        title="Quest Complete",
-        description=name,
-        color=discord.Color.green()
-    )
-
-    embed.add_field(name="Coins",value=reward["coins"])
-    embed.add_field(name="XP",value=reward["xp"])
-
-    await ctx.send(embed=embed)
-
-# -----------------------------
-# Loot Drop System
-# -----------------------------
-
-loot_items = [
-    "sword",
-    "greatsword",
-    "armor",
-    "knight_armor"
-]
-
-@bot.command()
-async def loot(ctx):
-
-    create_player(ctx.author.id)
-
-    item = random.choice(loot_items)
-
-    data = load_data()
-    data[str(ctx.author.id)]["inventory"].append(item)
-
-    save_data(data)
-
-    embed = discord.Embed(
-        title="Loot Found",
-        description=f"You found **{item}**",
-        color=discord.Color.teal()
-    )
-
-    await ctx.send(embed=embed)
-
-# -----------------------------
-# Crafting System
-# -----------------------------
-
-recipes = {
-
-    "mega_sword":{
-        "items":["sword","greatsword"],
-        "attack":20
-    }
+ save();
 
 }
 
-@bot.command()
-async def craft(ctx,item):
+function addItem(id,item){
 
-    create_player(ctx.author.id)
+ let user = getUser(id);
 
-    if item not in recipes:
-        await ctx.send("Recipe not found")
-        return
+ user.inventory.push(item);
 
-    data = load_data()
-    player = data[str(ctx.author.id)]
-
-    needed = recipes[item]["items"]
-
-    for i in needed:
-        if i not in player["inventory"]:
-            await ctx.send("Missing materials")
-            return
-
-    for i in needed:
-        player["inventory"].remove(i)
-
-    player["inventory"].append(item)
-
-    save_data(data)
-
-    embed = discord.Embed(
-        title="Craft Successful",
-        description=f"You crafted **{item}**",
-        color=discord.Color.green()
-    )
-
-    await ctx.send(embed=embed)
-
-# -----------------------------
-# Stats Command
-# -----------------------------
-
-@bot.command()
-async def stats(ctx):
-
-    create_player(ctx.author.id)
-
-    data = load_data()
-    p = data[str(ctx.author.id)]
-
-    embed = discord.Embed(
-        title=f"{ctx.author.name} Stats",
-        color=discord.Color.blue()
-    )
-
-    embed.add_field(name="Level",value=p["level"])
-    embed.add_field(name="HP",value=p["hp"])
-    embed.add_field(name="Attack",value=p["attack"])
-    embed.add_field(name="Defense",value=p["defense"])
-
-    await ctx.send(embed=embed)
-
-# -----------------------------
-# Advanced Shop UI
-# -----------------------------
-
-@bot.command()
-async def shop2(ctx):
-
-    embed = discord.Embed(
-        title="Advanced RPG Shop",
-        description="Better weapons available",
-        color=discord.Color.dark_gold()
-    )
-
-    embed.add_field(
-        name="Greatsword",
-        value="Attack +10 | Price 500",
-        inline=False
-    )
-
-    embed.add_field(
-        name="Knight Armor",
-        value="Defense +10 | Price 700",
-        inline=False
-    )
-
-    await ctx.send(embed=embed)
-
-# -----------------------------
-# Item Rarity System
-# -----------------------------
-
-rarity = {
-
-    "sword":"Common",
-    "armor":"Common",
-    "greatsword":"Rare",
-    "knight_armor":"Epic",
-    "mega_sword":"Legendary"
+ save();
 
 }
 
-@bot.command()
-async def item(ctx,name):
+function removeItem(id,item){
 
-    if name not in rarity:
-        await ctx.send("Item not found")
-        return
+ let user = getUser(id);
 
-    embed = discord.Embed(
-        title=name,
-        color=discord.Color.blurple()
-    )
+ let i = user.inventory.indexOf(item);
 
-    embed.add_field(
-        name="Rarity",
-        value=rarity[name]
-    )
+ if(i > -1){
 
-    await ctx.send(embed=embed)
+  user.inventory.splice(i,1);
+
+ }
+
+ save();
+
+}
+
+client.on("ready",()=>{
+
+ console.log("V6 RPG BOT ONLINE");
+
+});
+
+client.on("messageCreate",async message=>{
+
+ if(message.author.bot) return;
+
+ if(!message.content.startsWith(prefix)) return;
+
+ const args = message.content.slice(prefix.length).trim().split(/ +/);
+ const cmd = args.shift().toLowerCase();
+
+ const user = getUser(message.author.id);
+
+ // ================= BALANCE =================
+
+ if(cmd === "balance" || cmd === "bal"){
+
+  const embed = new EmbedBuilder()
+  .setTitle(`${message.author.username} Balance`)
+  .setColor("Gold")
+  .setDescription(`
+🪙 Wallet: ${user.wallet}
+🏦 Bank: ${user.bank}
+💎 Gems: ${user.gems}
+`);
+
+  return message.reply({embeds:[embed]});
+
+ }
+
+ // ================= DAILY =================
+
+ if(cmd === "daily"){
+
+  let now = Date.now();
+
+  if(now - user.lastDaily < 86400000){
+
+   return message.reply("You already claimed daily");
+
+  }
+
+  let reward = Math.floor(Math.random()*300)+200;
+
+  user.wallet += reward;
+  user.lastDaily = now;
+
+  save();
+
+  const embed = new EmbedBuilder()
+  .setTitle("Daily Reward")
+  .setColor("Green")
+  .setDescription(`You received 🪙 ${reward}`);
+
+  return message.reply({embeds:[embed]});
+
+ }
+
+ // ================= WORK =================
+
+ if(cmd === "work"){
+
+  let reward = Math.floor(Math.random()*150)+50;
+
+  user.wallet += reward;
+
+  addXP(message.author.id,20);
+
+  save();
+
+  const embed = new EmbedBuilder()
+  .setTitle("Work Complete")
+  .setColor("Orange")
+  .setDescription(`You earned 🪙 ${reward}`);
+
+  return message.reply({embeds:[embed]});
+
+ }
+
+ // ================= STATS =================
+
+ if(cmd === "stats"){
+
+  const embed = new EmbedBuilder()
+  .setTitle(`${message.author.username} Stats`)
+  .setColor("Blue")
+  .setDescription(`
+Level: ${user.level}
+XP: ${user.xp}
+
+⚔ Wins: ${user.battleWins}
+💀 Loss: ${user.battleLoss}
+
+💎 Gems: ${user.gems}
+`);
+
+  return message.reply({embeds:[embed]});
+
+ }
+
+ // ================= INVENTORY =================
+
+ if(cmd === "inventory" || cmd === "inv"){
+
+  let items = user.inventory.length
+  ? user.inventory.join("\n")
+  : "Empty";
+
+  const embed = new EmbedBuilder()
+  .setTitle("Inventory")
+  .setColor("Purple")
+  .setDescription(items);
+
+  return message.reply({embeds:[embed]});
+
+ }
+
+ // ================= LOOT =================
+
+ if(cmd === "loot"){
+
+  const loot = ["sword","armor","gem","potion"];
+
+  const item = loot[Math.floor(Math.random()*loot.length)];
+
+  addItem(message.author.id,item);
+
+  if(item === "gem") addGems(message.author.id,5);
+
+  const embed = new EmbedBuilder()
+  .setTitle("Loot Found")
+  .setColor("Aqua")
+  .setDescription(`You found **${item}**`);
+
+  return message.reply({embeds:[embed]});
+
+ }
+
+ // ================= BATTLE =================
+
+ if(cmd === "battle"){
+
+  let win = Math.random() > 0.5;
+
+  if(win){
+
+   user.battleWins += 1;
+
+   let reward = Math.floor(Math.random()*200)+100;
+
+   user.wallet += reward;
+
+   addXP(message.author.id,40);
+
+   save();
+
+   return message.reply(`⚔ You won the battle and earned 🪙 ${reward}`);
+
+  }else{
+
+   user.battleLoss += 1;
+
+   save();
+
+   return message.reply("💀 You lost the battle");
+
+  }
+
+ }
+
+});
+// ================= SHOP =================
+
+const shop = {
+ sword:{price:500},
+ armor:{price:400},
+ potion:{price:200}
+};
+
+client.on("messageCreate", async message => {
+
+ if(message.author.bot) return;
+ if(!message.content.startsWith(prefix)) return;
+
+ const args = message.content.slice(prefix.length).trim().split(/ +/);
+ const cmd = args.shift().toLowerCase();
+
+ const user = getUser(message.author.id);
+
+ // SHOP
+
+ if(cmd === "shop"){
+
+  let text = "";
+
+  for(let item in shop){
+
+   text += `${item} — 🪙 ${shop[item].price}\n`;
+
+  }
+
+  const embed = new EmbedBuilder()
+  .setTitle("RPG Shop")
+  .setColor("Gold")
+  .setDescription(text);
+
+  return message.reply({embeds:[embed]});
+
+ }
+
+ // BUY
+
+ if(cmd === "buy"){
+
+  let item = args[0];
+
+  if(!shop[item]) return message.reply("Item not found");
+
+  let price = shop[item].price;
+
+  if(user.wallet < price)
+  return message.reply("Not enough coins");
+
+  user.wallet -= price;
+
+  addItem(message.author.id,item);
+
+  save();
+
+  return message.reply(`You bought **${item}**`);
+
+ }
+
+ // ================= QUEST =================
+
+ if(cmd === "quest"){
+
+  let reward = Math.floor(Math.random()*300)+100;
+
+  user.wallet += reward;
+
+  addXP(message.author.id,50);
+
+  save();
+
+  const embed = new EmbedBuilder()
+  .setTitle("Quest Complete")
+  .setColor("Green")
+  .setDescription(`Reward: 🪙 ${reward}`);
+
+  return message.reply({embeds:[embed]});
+
+ }
+
+ // ================= CRAFT =================
+
+ if(cmd === "craft"){
+
+  if(user.inventory.includes("sword") && user.inventory.includes("armor")){
+
+   removeItem(message.author.id,"sword");
+   removeItem(message.author.id,"armor");
+
+   addItem(message.author.id,"mega_sword");
+
+   return message.reply("You crafted **Mega Sword**");
+
+  }
+
+  return message.reply("Need sword + armor");
+
+ }
+
+ // ================= BALANCE LEADERBOARD =================
+
+ if(cmd === "lb" || cmd === "leaderboard"){
+
+  if(args[0] === "battles"){
+
+   let arr = Object.entries(users);
+
+   arr.sort((a,b)=>b[1].battleWins - a[1].battleWins);
+
+   arr = arr.slice(0,10);
+
+   let medals=["🥇","🥈","🥉"];
+
+   let text="";
+
+   arr.forEach((u,i)=>{
+
+    let medal = medals[i] || `#${i+1}`;
+
+    text += `${medal} <@${u[0]}>
+Battle Wins: ${u[1].battleWins}
+
+`;
+
+   });
+
+   const embed = new EmbedBuilder()
+   .setTitle("⚔ Battle Leaderboard")
+   .setColor("Red")
+   .setDescription(text);
+
+   return message.reply({embeds:[embed]});
+
+  }
+
+  let arr = Object.entries(users);
+
+  arr.sort((a,b)=>{
+   return (b[1].wallet + b[1].bank) - (a[1].wallet + a[1].bank);
+  });
+
+  arr = arr.slice(0,10);
+
+  let medals=["🥇","🥈","🥉"];
+
+  let text="";
+
+  arr.forEach((u,i)=>{
+
+   let medal = medals[i] || `#${i+1}`;
+
+   text += `${medal} <@${u[0]}>
+🪙: ${u[1].wallet}
+💎: ${u[1].gems}
+
+`;
+
+  });
+
+  const embed = new EmbedBuilder()
+  .setTitle("💰 Richest Players")
+  .setColor("Gold")
+  .setDescription(text);
+
+  return message.reply({embeds:[embed]});
+
+ }
+
+});
+
+// ================= ITEM INFO =================
+
+const rarity = {
+ sword:"Common",
+ armor:"Common",
+ potion:"Common",
+ mega_sword:"Legendary"
+};
+
+client.on("messageCreate", async message => {
+
+ if(message.author.bot) return;
+ if(!message.content.startsWith(prefix)) return;
+
+ const args = message.content.slice(prefix.length).trim().split(/ +/);
+ const cmd = args.shift().toLowerCase();
+
+ if(cmd === "item"){
+
+  let name = args[0];
+
+  if(!rarity[name]) return message.reply("Item not found");
+
+  const embed = new EmbedBuilder()
+  .setTitle(name)
+  .setColor("Purple")
+  .setDescription(`Rarity: ${rarity[name]}`);
+
+  return message.reply({embeds:[embed]});
+
+ }
+
+});
+
+// ================= LOGIN =================
+
+client.login(process.env.TOKEN);
