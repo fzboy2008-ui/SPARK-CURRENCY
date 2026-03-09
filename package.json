@@ -1,16 +1,15 @@
 {
-"name": "spark-bot-v6",
-"version": "1.0.0",
-"description": "Spark Discord Economy Bot V6",
-"main": "index.js",
-"type": "commonjs",
-"scripts": {
-"start": "node index.js"
-},
-"author": "Spark",
-"license": "ISC",
-"dependencies": {
-"discord.js": "^14.14.1",
-"fs": "^0.0.1-security"
-}
+  "name": "spark-bot",
+  "version": "1.0.0",
+  "description": "Spark Discord Economy Bot",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "author": "Spark",
+  "license": "MIT",
+  "dependencies": {
+    "discord.js": "^14.14.1"
+  }
 }
