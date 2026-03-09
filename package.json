@@ -1,9 +1,16 @@
 {
-  "name": "spark-bot",
-  "version": "5.0.0",
-  "main": "index.js",
-  "dependencies": {
-    "discord.js": "^14.14.1",
-    "dotenv": "^16.4.0"
-  }
+"name": "spark-bot-v6",
+"version": "1.0.0",
+"description": "Spark Discord Economy Bot V6",
+"main": "index.js",
+"type": "commonjs",
+"scripts": {
+"start": "node index.js"
+},
+"author": "Spark",
+"license": "ISC",
+"dependencies": {
+"discord.js": "^14.14.1",
+"fs": "^0.0.1-security"
+}
 }
