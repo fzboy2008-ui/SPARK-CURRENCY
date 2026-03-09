@@ -10,11 +10,24 @@ const client = new Client({
   ]
 });
 
-const PREFIXES = ["s ", "spark "];
+// ================= PREFIX =================
+
+const PREFIXES = ["s", "spark"];
+
+function getPrefix(message) {
+
+  const msg = message.content.toLowerCase();
+
+  for (const p of PREFIXES) {
+    if (msg.startsWith(p + " ")) return p;
+  }
+
+}
 
 // ================= DATABASE =================
 
 if (!fs.existsSync("./database")) fs.mkdirSync("./database");
+
 if (!fs.existsSync("./database/users.json"))
   fs.writeFileSync("./database/users.json", "{}");
 
@@ -31,23 +44,12 @@ function getUser(id) {
     users[id] = {
       wallet: 0,
       bank: 0,
-      gems: 0,
       lastDaily: 0
     };
 
   }
 
   return users[id];
-
-}
-
-// ================= PREFIX =================
-
-function getPrefix(msg) {
-
-  const lower = msg.content.toLowerCase();
-
-  return PREFIXES.find(p => lower.startsWith(p));
 
 }
 
@@ -70,9 +72,35 @@ client.on("messageCreate", async message => {
   if (!prefix) return;
 
   const args = message.content.slice(prefix.length).trim().split(/ +/);
+
   const cmd = args.shift().toLowerCase();
 
   const user = getUser(message.author.id);
+
+  // ================= HELP =================
+
+  if (cmd === "help") {
+
+    const embed = new EmbedBuilder()
+
+      .setColor("Blue")
+      .setTitle("⚡ SPARK BOT COMMANDS")
+
+      .setDescription(
+`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💰 ECONOMY
+\`s daily\`
+\`s bal\`
+\`s deposit <amount>\`
+\`s withdraw <amount>\`
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
+);
+
+    return message.reply({ embeds: [embed] });
+
+  }
 
   // ================= BAL =================
 
@@ -90,7 +118,6 @@ client.on("messageCreate", async message => {
 
 💵 Wallet : ${user.wallet}
 🏦 Bank   : ${user.bank}
-💎 Gems   : ${user.gems}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
 );
@@ -151,7 +178,7 @@ ${h}h ${m}m ${s}s
 
 💰 Reward : 1000 Coins
 
-💵 New Wallet : ${user.wallet}
+💵 Wallet : ${user.wallet}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
 );
@@ -166,7 +193,8 @@ ${h}h ${m}m ${s}s
 
     const amount = parseInt(args[0]);
 
-    if (!amount) return message.reply("Enter amount");
+    if (!amount || amount <= 0)
+      return message.reply("Enter valid amount");
 
     if (user.wallet < amount)
       return message.reply("Not enough coins");
@@ -202,7 +230,8 @@ ${h}h ${m}m ${s}s
 
     const amount = parseInt(args[0]);
 
-    if (!amount) return message.reply("Enter amount");
+    if (!amount || amount <= 0)
+      return message.reply("Enter valid amount");
 
     if (user.bank < amount)
       return message.reply("Not enough bank coins");
