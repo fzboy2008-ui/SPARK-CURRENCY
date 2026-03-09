@@ -2,24 +2,25 @@ const { Client, GatewayIntentBits, EmbedBuilder } = require("discord.js");
 const fs = require("fs");
 
 const client = new Client({
-intents:[
-GatewayIntentBits.Guilds,
-GatewayIntentBits.GuildMessages,
-GatewayIntentBits.MessageContent
-]});
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
+  ]
+});
 
-const prefix = "s";
+const prefixes = ["s","S","spark","Spark","SPARK"];
 
-const dbFile = "./database.json";
+const dbFile="./database.json";
 
 if(!fs.existsSync(dbFile)){
-fs.writeFileSync(dbFile, JSON.stringify({}));
+fs.writeFileSync(dbFile,JSON.stringify({}));
 }
 
-let db = JSON.parse(fs.readFileSync(dbFile));
+let db=JSON.parse(fs.readFileSync(dbFile));
 
 function saveDB(){
-fs.writeFileSync(dbFile, JSON.stringify(db,null,2));
+fs.writeFileSync(dbFile,JSON.stringify(db,null,2));
 }
 
 function getUser(id){
@@ -37,45 +38,48 @@ return db[id];
 client.on("messageCreate", async message=>{
 
 if(message.author.bot) return;
-if(!message.content.startsWith(prefix)) return;
+
+let prefix = prefixes.find(p => message.content.startsWith(p+" "));
+if(!prefix) return;
 
 const args = message.content.slice(prefix.length).trim().split(/ +/);
 const cmd = args.shift().toLowerCase();
 
 const user = getUser(message.author.id);
 
-//////////////// HELP //////////////////
+//////////// HELP ////////////
 
 if(cmd==="help"){
 
-const embed = new EmbedBuilder()
+const embed=new EmbedBuilder()
 
 .setColor("#f1c40f")
 
 .setTitle("⚡ SPARK BOT COMMANDS")
 
 .setDescription(`
+
 💰 **ECONOMY**
-\`s bal\`
-\`s daily\`
-\`s deposit <amount>\`
-\`s withdraw <amount>\`
+s bal
+s daily
+s deposit <amount>
+s withdraw <amount>
+s give @user <amount>
 
 🎰 **CASINO**
-\`s cf <amount/all>\`
-\`s slot <amount/all>\`
+s cf <amount/all>
+s slot <amount/all>
 
 `);
 
 message.reply({embeds:[embed]});
-
 }
 
-//////////////// BAL //////////////////
+//////////// BAL ////////////
 
 if(cmd==="bal"){
 
-const embed = new EmbedBuilder()
+const embed=new EmbedBuilder()
 
 .setColor("#f1c40f")
 
@@ -83,7 +87,7 @@ const embed = new EmbedBuilder()
 
 .setDescription(`
 
-👤 **${message.author.username}**
+👤 ${message.author.username}
 
 💵 Wallet : ${user.wallet}
 🏦 Bank   : ${user.bank}
@@ -92,62 +96,38 @@ const embed = new EmbedBuilder()
 `);
 
 message.reply({embeds:[embed]});
-
 }
 
-//////////////// DAILY //////////////////
+//////////// DAILY ////////////
 
 if(cmd==="daily"){
 
-const now = Date.now();
-const cd = 86400000;
+const now=Date.now();
+const cd=86400000;
 
 if(now-user.lastDaily<cd){
 
-const timeLeft = cd-(now-user.lastDaily);
-const h = Math.floor(timeLeft/3600000);
+const t=cd-(now-user.lastDaily);
+const h=Math.floor(t/3600000);
 
-const embed = new EmbedBuilder()
-
-.setColor("Red")
-
-.setDescription(`
-You already claimed today's reward
-
-⏱ Next Daily In **${h}h**
-`);
-
-return message.reply({embeds:[embed]});
+return message.reply(`⏱ Next daily in ${h}h`);
 }
 
-const reward = 500;
+const reward=500;
 
-user.wallet += reward;
-user.lastDaily = now;
+user.wallet+=reward;
+user.lastDaily=now;
 
 saveDB();
 
-const embed = new EmbedBuilder()
-
-.setColor("Green")
-
-.setDescription(`
-
-🎉 Daily Reward
-
-💰 +${reward} coins added
-
-`);
-
-message.reply({embeds:[embed]});
-
+message.reply(`🎉 Daily reward claimed +${reward}`);
 }
 
-//////////////// DEPOSIT //////////////////
+//////////// DEPOSIT ////////////
 
 if(cmd==="deposit"){
 
-let amount = args[0];
+let amount=args[0];
 
 if(amount==="all") amount=user.wallet;
 
@@ -160,14 +140,14 @@ user.bank+=amount;
 
 saveDB();
 
-message.reply(`🏦 Deposited **${amount}** coins`);
+message.reply(`🏦 Deposited ${amount}`);
 }
 
-//////////////// WITHDRAW //////////////////
+//////////// WITHDRAW ////////////
 
 if(cmd==="withdraw"){
 
-let amount = args[0];
+let amount=args[0];
 
 if(amount==="all") amount=user.bank;
 
@@ -180,10 +160,33 @@ user.wallet+=amount;
 
 saveDB();
 
-message.reply(`💵 Withdrawn **${amount}** coins`);
+message.reply(`💵 Withdrawn ${amount}`);
 }
 
-//////////////// COINFLIP //////////////////
+//////////// GIVE ////////////
+
+if(cmd==="give"){
+
+const target=message.mentions.users.first();
+const amount=parseInt(args[1]);
+
+if(!target) return message.reply("Mention user");
+
+if(!amount) return message.reply("Enter amount");
+
+const targetUser=getUser(target.id);
+
+if(user.wallet<amount) return message.reply("Not enough coins");
+
+user.wallet-=amount;
+targetUser.wallet+=amount;
+
+saveDB();
+
+message.reply(`💸 Sent ${amount} coins to ${target.username}`);
+}
+
+//////////// COINFLIP ANIMATION ////////////
 
 if(cmd==="cf"){
 
@@ -195,37 +198,47 @@ amount=parseInt(amount);
 
 if(!amount || user.wallet<amount) return message.reply("Not enough coins");
 
-const msg = await message.reply("🪙 Flipping coin...");
+const msg=await message.reply("🪙 Preparing coin...");
 
-const flip = ["HEADS","TAILS"][Math.floor(Math.random()*2)];
+const frames=[
+"🪙",
+"🔘",
+"🪙",
+"🔘",
+"🪙"
+];
 
-await new Promise(r=>setTimeout(r,2000));
+for(const f of frames){
+await new Promise(r=>setTimeout(r,400));
+await msg.edit(`🪙 Flipping...\n${f}`);
+}
 
-const win = Math.random()<0.5;
+const result=Math.random()<0.5?"HEADS":"TAILS";
+
+const win=Math.random()<0.5;
 
 if(win){
 
 user.wallet+=amount;
 
-await msg.edit(`🪙 **${flip}**
+await msg.edit(`🪙 ${result}
 
-🎉 You won **${amount} coins**`);
+🎉 You won ${amount}`);
 
 }else{
 
 user.wallet-=amount;
 
-await msg.edit(`🪙 **${flip}**
+await msg.edit(`🪙 ${result}
 
-💀 You lost **${amount} coins**`);
+💀 You lost ${amount}`);
 
 }
 
 saveDB();
-
 }
 
-//////////////// SLOT //////////////////
+//////////// SLOT ANIMATION ////////////
 
 if(cmd==="slot"){
 
@@ -237,41 +250,47 @@ amount=parseInt(amount);
 
 if(!amount || user.wallet<amount) return message.reply("Not enough coins");
 
-const msg = await message.reply("🎰 Spinning...");
-
-await new Promise(r=>setTimeout(r,2000));
+const msg=await message.reply("🎰 Starting slot...");
 
 const icons=["🍒","🍋","🍇","💎","7️⃣"];
+
+for(let i=0;i<4;i++){
 
 const r1=icons[Math.floor(Math.random()*icons.length)];
 const r2=icons[Math.floor(Math.random()*icons.length)];
 const r3=icons[Math.floor(Math.random()*icons.length)];
 
-let result=`${r1} | ${r2} | ${r3}`;
+await new Promise(r=>setTimeout(r,500));
+
+await msg.edit(`🎰 ${r1} | ${r2} | ${r3}`);
+}
+
+const r1=icons[Math.floor(Math.random()*icons.length)];
+const r2=icons[Math.floor(Math.random()*icons.length)];
+const r3=icons[Math.floor(Math.random()*icons.length)];
 
 if(r1===r2 && r2===r3){
 
 const win=amount*3;
+
 user.wallet+=win;
 
-await msg.edit(`🎰 ${result}
+await msg.edit(`🎰 ${r1} | ${r2} | ${r3}
 
-🔥 JACKPOT!
-
-💰 Won **${win} coins**`);
+🔥 JACKPOT
+Won ${win}`);
 
 }else{
 
 user.wallet-=amount;
 
-await msg.edit(`🎰 ${result}
+await msg.edit(`🎰 ${r1} | ${r2} | ${r3}
 
-💀 Lost **${amount} coins**`);
+💀 Lost ${amount}`);
 
 }
 
 saveDB();
-
 }
 
 });
