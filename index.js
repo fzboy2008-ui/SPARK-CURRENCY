@@ -2,58 +2,48 @@ const { Client, GatewayIntentBits } = require("discord.js");
 const fs = require("fs");
 
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
-  ]
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
 });
 
-const prefixList = ["s", "S", "spark", "Spark"];
-const DAILY_COOLDOWN = 86400000;
+const prefix = "s";
 
-// Load database
-let db = JSON.parse(fs.readFileSync("./index.json", "utf8"));
+// DATABASE FILE
+const dbFile = "./database.json";
+
+// create database if not exist
+if (!fs.existsSync(dbFile)) {
+  fs.writeFileSync(dbFile, JSON.stringify({}));
+}
+
+let db = JSON.parse(fs.readFileSync(dbFile));
 
 function saveDB() {
-  fs.writeFileSync("./index.json", JSON.stringify(db, null, 2));
+  fs.writeFileSync(dbFile, JSON.stringify(db, null, 2));
 }
 
 function getUser(id) {
-  if (!db.users[id]) {
-    db.users[id] = {
+  if (!db[id]) {
+    db[id] = {
       wallet: 0,
       bank: 0,
       gems: 0,
       lastDaily: 0
     };
   }
-  return db.users[id];
+  return db[id];
 }
 
 client.on("messageCreate", async (message) => {
-
   if (message.author.bot) return;
+  if (!message.content.startsWith(prefix)) return;
 
-  const prefixUsed = prefixList.find(p =>
-    message.content.toLowerCase().startsWith(p.toLowerCase())
-  );
-
-  if (!prefixUsed) return;
-
-  const args = message.content
-    .slice(prefixUsed.length)
-    .trim()
-    .split(/ +/);
-
+  const args = message.content.slice(prefix.length).trim().split(/ +/);
   const cmd = args.shift().toLowerCase();
 
   const user = getUser(message.author.id);
 
-  // ================= BAL =================
-
+  // BALANCE
   if (cmd === "bal") {
-
     return message.reply(
 `━━━━━━━━━━━━━━━━━━━━━━
 
@@ -65,22 +55,18 @@ client.on("messageCreate", async (message) => {
 
 ━━━━━━━━━━━━━━━━━━━━━━`
     );
-
   }
 
-  // ================= DAILY =================
-
+  // DAILY
   if (cmd === "daily") {
 
     const now = Date.now();
+    const cooldown = 86400000;
 
-    if (now - user.lastDaily < DAILY_COOLDOWN) {
-
-      const remaining = DAILY_COOLDOWN - (now - user.lastDaily);
-
-      const hours = Math.floor(remaining / 3600000);
-      const minutes = Math.floor((remaining % 3600000) / 60000);
-      const seconds = Math.floor((remaining % 60000) / 1000);
+    if (now - user.lastDaily < cooldown) {
+      const timeLeft = cooldown - (now - user.lastDaily);
+      const hours = Math.floor(timeLeft / 3600000);
+      const minutes = Math.floor((timeLeft % 3600000) / 60000);
 
       return message.reply(
 `━━━━━━━━━━━━━━━━━━━━━━
@@ -88,77 +74,39 @@ client.on("messageCreate", async (message) => {
 You already claimed today's reward.
 
 ⏱ Next Daily In
-${hours}h ${minutes}m ${seconds}s
+${hours}h ${minutes}m
 
 ━━━━━━━━━━━━━━━━━━━━━━`
       );
-
     }
 
-    user.wallet += 1000;
+    const reward = 500;
+
+    user.wallet += reward;
     user.lastDaily = now;
 
     saveDB();
 
-    return message.reply(
+    message.reply(
 `━━━━━━━━━━━━━━━━━━━━━━
 
-🎁 Daily Reward Claimed
+🎉 Daily Reward Claimed
 
-+1000 Coins added to wallet
-
-⏱ Come back again in 24h
+💰 +${reward} coins added to wallet
 
 ━━━━━━━━━━━━━━━━━━━━━━`
     );
-
   }
 
-  // ================= GIVE =================
-
-  if (cmd === "give") {
-
-    const target = message.mentions.users.first();
-    const amount = parseInt(args[1]);
-
-    if (!target || isNaN(amount)) return;
-
-    if (user.wallet < amount) {
-      return message.reply("Not enough coins.");
-    }
-
-    const targetUser = getUser(target.id);
-
-    user.wallet -= amount;
-    targetUser.wallet += amount;
-
-    saveDB();
-
-    return message.reply(
-`━━━━━━━━━━━━━━━━━━━━━━
-
-💸 Coins Sent
-
-Sender : ${message.author.username}
-Receiver : ${target.username}
-
-Amount : ${amount}
-
-━━━━━━━━━━━━━━━━━━━━━━`
-    );
-
-  }
-
-  // ================= DEPOSIT =================
-
+  // DEPOSIT
   if (cmd === "deposit") {
 
     const amount = parseInt(args[0]);
 
-    if (isNaN(amount)) return;
+    if (!amount || amount <= 0) return;
 
     if (user.wallet < amount) {
-      return message.reply("Not enough coins.");
+      return message.reply("Not enough wallet coins.");
     }
 
     user.wallet -= amount;
@@ -166,31 +114,18 @@ Amount : ${amount}
 
     saveDB();
 
-    return message.reply(
-`━━━━━━━━━━━━━━━━━━━━━━
-
-🏦 Bank Deposit
-
-Amount : ${amount}
-
-💵 Wallet : ${user.wallet}
-🏦 Bank   : ${user.bank}
-
-━━━━━━━━━━━━━━━━━━━━━━`
-    );
-
+    message.reply(`Deposited ${amount} coins.`);
   }
 
-  // ================= WITHDRAW =================
-
+  // WITHDRAW
   if (cmd === "withdraw") {
 
     const amount = parseInt(args[0]);
 
-    if (isNaN(amount)) return;
+    if (!amount || amount <= 0) return;
 
     if (user.bank < amount) {
-      return message.reply("Not enough coins.");
+      return message.reply("Not enough bank coins.");
     }
 
     user.bank -= amount;
@@ -198,101 +133,83 @@ Amount : ${amount}
 
     saveDB();
 
-    return message.reply(
-`━━━━━━━━━━━━━━━━━━━━━━
-
-🏧 Bank Withdraw
-
-Amount : ${amount}
-
-💵 Wallet : ${user.wallet}
-🏦 Bank   : ${user.bank}
-
-━━━━━━━━━━━━━━━━━━━━━━`
-    );
-
+    message.reply(`Withdrawn ${amount} coins.`);
   }
 
-  // ================= COINFLIP =================
+  // GIVE
+  if (cmd === "give") {
 
-  if (cmd === "cf" || cmd === "coinflip") {
+    const target = message.mentions.users.first();
+    const amount = parseInt(args[1]);
 
-    const bet = parseInt(args[0]);
+    if (!target) return;
+    if (!amount) return;
 
-    if (isNaN(bet) || bet <= 0) {
-      return message.reply("Enter a valid bet amount.");
-    }
+    const targetUser = getUser(target.id);
 
-    if (user.wallet < bet) {
+    if (user.wallet < amount) {
       return message.reply("Not enough coins.");
     }
 
-    const flipMsg = await message.reply(
-`━━━━━━━━━━━━━━━━━━━━━━
+    user.wallet -= amount;
+    targetUser.wallet += amount;
 
-🪙 Coinflip
+    saveDB();
 
-Bet : ${bet}
+    message.reply(`💸 Sent ${amount} coins to ${target.username}`);
+  }
 
-Flipping...
+  // COINFLIP
+  if (cmd === "cf") {
 
-🪙 ➜ 🔄 ➜ 🪙
+    const amount = parseInt(args[0]);
+    if (!amount) return;
 
-━━━━━━━━━━━━━━━━━━━━━━`
-    );
+    if (user.wallet < amount) {
+      return message.reply("Not enough coins.");
+    }
 
-    setTimeout(() => {
+    const win = Math.random() < 0.5;
 
-      const win = Math.random() < 0.25;
+    if (win) {
+      user.wallet += amount;
+      message.reply(`🪙 You won ${amount} coins!`);
+    } else {
+      user.wallet -= amount;
+      message.reply(`💀 You lost ${amount} coins.`);
+    }
 
-      if (win) {
+    saveDB();
+  }
 
-        const reward = bet * 2;
-        user.wallet += reward;
+  // SLOT
+  if (cmd === "slot") {
 
-        flipMsg.edit(
-`━━━━━━━━━━━━━━━━━━━━━━
+    const amount = parseInt(args[0]);
+    if (!amount) return;
 
-🪙 Coinflip
+    if (user.wallet < amount) {
+      return message.reply("Not enough coins.");
+    }
 
-Bet : ${bet}
+    const roll = Math.random();
 
-Result : HEAD
+    if (roll > 0.7) {
+      const win = amount * 2;
+      user.wallet += win;
+      message.reply(`🎰 JACKPOT! You won ${win}`);
+    } else {
+      user.wallet -= amount;
+      message.reply(`🎰 You lost ${amount}`);
+    }
 
-🎉 You Won
-+${reward} Coins
-
-━━━━━━━━━━━━━━━━━━━━━━`
-        );
-
-      } else {
-
-        user.wallet -= bet;
-
-        flipMsg.edit(
-`━━━━━━━━━━━━━━━━━━━━━━
-
-🪙 Coinflip
-
-Bet : ${bet}
-
-Result : TAIL
-
-💀 You Lost
--${bet} Coins
-
-━━━━━━━━━━━━━━━━━━━━━━`
-        );
-
-      }
-
-      saveDB();
-
-    }, 2000);
-
+    saveDB();
   }
 
 });
 
-// Railway ENV token
+client.once("ready", () => {
+  console.log(`Logged in as ${client.user.tag}`);
+});
+
 client.login(process.env.TOKEN);
