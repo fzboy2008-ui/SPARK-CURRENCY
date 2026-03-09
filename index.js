@@ -1,65 +1,106 @@
-const { Client, GatewayIntentBits } = require("discord.js"); const fs = require("fs");
+const { Client, GatewayIntentBits } = require("discord.js");
+const fs = require("fs");
 
-const client = new Client({ intents: [ GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent ] });
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
+  ]
+});
 
-// Prefixes const prefixList = ["s", "S", "spark", "Spark"];
+const prefixList = ["s", "S", "spark", "Spark"];
+const DAILY_COOLDOWN = 86400000;
 
-// Daily cooldown (24h) const DAILY_COOLDOWN = 86400000;
+// Load database
+let db = JSON.parse(fs.readFileSync("./index.json", "utf8"));
 
-// Load database let db = JSON.parse(fs.readFileSync("./index.json", "utf8"));
+function saveDB() {
+  fs.writeFileSync("./index.json", JSON.stringify(db, null, 2));
+}
 
-function saveDB() { fs.writeFileSync("./index.json", JSON.stringify(db, null, 2)); }
+function getUser(id) {
+  if (!db.users[id]) {
+    db.users[id] = {
+      wallet: 0,
+      bank: 0,
+      gems: 0,
+      lastDaily: 0
+    };
+  }
+  return db.users[id];
+}
 
-function getUser(id) { if (!db.users[id]) { db.users[id] = { wallet: 0, bank: 0, gems: 0, lastDaily: 0 }; }
+client.on("messageCreate", async (message) => {
 
-return db.users[id]; }
+  if (message.author.bot) return;
 
-client.on("messageCreate", async (message) => { if (message.author.bot) return;
+  const prefixUsed = prefixList.find(p =>
+    message.content.toLowerCase().startsWith(p.toLowerCase())
+  );
 
-const prefixUsed = prefixList.find(p => message.content.toLowerCase().startsWith(p.toLowerCase()) );
+  if (!prefixUsed) return;
 
-if (!prefixUsed) return;
+  const args = message.content
+    .slice(prefixUsed.length)
+    .trim()
+    .split(/ +/);
 
-const args = message.content .slice(prefixUsed.length) .trim() .split(/ +/);
+  const cmd = args.shift().toLowerCase();
 
-const cmd = args.shift().toLowerCase();
+  const user = getUser(message.author.id);
 
-const user = getUser(message.author.id);
+  // ================= BAL =================
 
-// ================= BALANCE ================= if (cmd === "bal") { return message.reply( `━━━━━━━━━━━━━━━━━━━━━━
+  if (cmd === "bal") {
+
+    return message.reply(
+`━━━━━━━━━━━━━━━━━━━━━━
 
 👤 ${message.author.username}
 
-💵 Wallet : ${user.wallet} 🏦 Bank   : ${user.bank} 💎 Gems   : ${user.gems}
+💵 Wallet : ${user.wallet}
+🏦 Bank   : ${user.bank}
+💎 Gems   : ${user.gems}
 
-━━━━━━━━━━━━━━━━━━━━━━` ); }
+━━━━━━━━━━━━━━━━━━━━━━`
+    );
 
-// ================= DAILY ================= if (cmd === "daily") { const now = Date.now();
+  }
 
-if (now - user.lastDaily < DAILY_COOLDOWN) {
-  const remaining = DAILY_COOLDOWN - (now - user.lastDaily);
+  // ================= DAILY =================
 
-  const hours = Math.floor(remaining / 3600000);
-  const minutes = Math.floor((remaining % 3600000) / 60000);
-  const seconds = Math.floor((remaining % 60000) / 1000);
+  if (cmd === "daily") {
 
-  return message.reply(
+    const now = Date.now();
 
+    if (now - user.lastDaily < DAILY_COOLDOWN) {
+
+      const remaining = DAILY_COOLDOWN - (now - user.lastDaily);
+
+      const hours = Math.floor(remaining / 3600000);
+      const minutes = Math.floor((remaining % 3600000) / 60000);
+      const seconds = Math.floor((remaining % 60000) / 1000);
+
+      return message.reply(
 `━━━━━━━━━━━━━━━━━━━━━━
 
 You already claimed today's reward.
 
-⏱ Next Daily In ${hours}h ${minutes}m ${seconds}s
+⏱ Next Daily In
+${hours}h ${minutes}m ${seconds}s
 
-━━━━━━━━━━━━━━━━━━━━━━` ); }
+━━━━━━━━━━━━━━━━━━━━━━`
+      );
 
-user.wallet += 1000;
-user.lastDaily = now;
+    }
 
-saveDB();
+    user.wallet += 1000;
+    user.lastDaily = now;
 
-return message.reply(
+    saveDB();
 
+    return message.reply(
 `━━━━━━━━━━━━━━━━━━━━━━
 
 🎁 Daily Reward Claimed
@@ -68,97 +109,125 @@ return message.reply(
 
 ⏱ Come back again in 24h
 
-━━━━━━━━━━━━━━━━━━━━━━` ); }
+━━━━━━━━━━━━━━━━━━━━━━`
+    );
 
-// ================= GIVE ================= if (cmd === "give") { const target = message.mentions.users.first(); const amount = parseInt(args[1]);
+  }
 
-if (!target || isNaN(amount)) return;
+  // ================= GIVE =================
 
-if (user.wallet < amount) {
-  return message.reply("Not enough coins.");
-}
+  if (cmd === "give") {
 
-const targetUser = getUser(target.id);
+    const target = message.mentions.users.first();
+    const amount = parseInt(args[1]);
 
-user.wallet -= amount;
-targetUser.wallet += amount;
+    if (!target || isNaN(amount)) return;
 
-saveDB();
+    if (user.wallet < amount) {
+      return message.reply("Not enough coins.");
+    }
 
-return message.reply(
+    const targetUser = getUser(target.id);
 
+    user.wallet -= amount;
+    targetUser.wallet += amount;
+
+    saveDB();
+
+    return message.reply(
 `━━━━━━━━━━━━━━━━━━━━━━
 
 💸 Coins Sent
 
-Sender : ${message.author.username} Receiver : ${target.username}
+Sender : ${message.author.username}
+Receiver : ${target.username}
 
 Amount : ${amount}
 
-━━━━━━━━━━━━━━━━━━━━━━` ); }
+━━━━━━━━━━━━━━━━━━━━━━`
+    );
 
-// ================= DEPOSIT ================= if (cmd === "deposit") { const amount = parseInt(args[0]);
+  }
 
-if (isNaN(amount)) return;
+  // ================= DEPOSIT =================
 
-if (user.wallet < amount) {
-  return message.reply("Not enough coins.");
-}
+  if (cmd === "deposit") {
 
-user.wallet -= amount;
-user.bank += amount;
+    const amount = parseInt(args[0]);
 
-saveDB();
+    if (isNaN(amount)) return;
 
-return message.reply(
+    if (user.wallet < amount) {
+      return message.reply("Not enough coins.");
+    }
 
+    user.wallet -= amount;
+    user.bank += amount;
+
+    saveDB();
+
+    return message.reply(
 `━━━━━━━━━━━━━━━━━━━━━━
 
 🏦 Bank Deposit
 
 Amount : ${amount}
 
-💵 Wallet : ${user.wallet} 🏦 Bank   : ${user.bank}
+💵 Wallet : ${user.wallet}
+🏦 Bank   : ${user.bank}
 
-━━━━━━━━━━━━━━━━━━━━━━` ); }
+━━━━━━━━━━━━━━━━━━━━━━`
+    );
 
-// ================= WITHDRAW ================= if (cmd === "withdraw") { const amount = parseInt(args[0]);
+  }
 
-if (isNaN(amount)) return;
+  // ================= WITHDRAW =================
 
-if (user.bank < amount) {
-  return message.reply("Not enough coins.");
-}
+  if (cmd === "withdraw") {
 
-user.bank -= amount;
-user.wallet += amount;
+    const amount = parseInt(args[0]);
 
-saveDB();
+    if (isNaN(amount)) return;
 
-return message.reply(
+    if (user.bank < amount) {
+      return message.reply("Not enough coins.");
+    }
 
+    user.bank -= amount;
+    user.wallet += amount;
+
+    saveDB();
+
+    return message.reply(
 `━━━━━━━━━━━━━━━━━━━━━━
 
 🏧 Bank Withdraw
 
 Amount : ${amount}
 
-💵 Wallet : ${user.wallet} 🏦 Bank   : ${user.bank}
+💵 Wallet : ${user.wallet}
+🏦 Bank   : ${user.bank}
 
-━━━━━━━━━━━━━━━━━━━━━━` ); }
+━━━━━━━━━━━━━━━━━━━━━━`
+    );
 
-// ================= COINFLIP ================= if (cmd === "cf" || cmd === "coinflip") { const bet = parseInt(args[0]);
+  }
 
-if (isNaN(bet) || bet <= 0) {
-  return message.reply("Enter a valid bet amount.");
-}
+  // ================= COINFLIP =================
 
-if (user.wallet < bet) {
-  return message.reply("Not enough coins.");
-}
+  if (cmd === "cf" || cmd === "coinflip") {
 
-const flipMsg = await message.reply(
+    const bet = parseInt(args[0]);
 
+    if (isNaN(bet) || bet <= 0) {
+      return message.reply("Enter a valid bet amount.");
+    }
+
+    if (user.wallet < bet) {
+      return message.reply("Not enough coins.");
+    }
+
+    const flipMsg = await message.reply(
 `━━━━━━━━━━━━━━━━━━━━━━
 
 🪙 Coinflip
@@ -169,17 +238,19 @@ Flipping...
 
 🪙 ➜ 🔄 ➜ 🪙
 
-━━━━━━━━━━━━━━━━━━━━━━` );
+━━━━━━━━━━━━━━━━━━━━━━`
+    );
 
-setTimeout(() => {
-  const win = Math.random() < 0.25;
+    setTimeout(() => {
 
-  if (win) {
-    const reward = bet * 2;
-    user.wallet += reward;
+      const win = Math.random() < 0.25;
 
-    flipMsg.edit(
+      if (win) {
 
+        const reward = bet * 2;
+        user.wallet += reward;
+
+        flipMsg.edit(
 `━━━━━━━━━━━━━━━━━━━━━━
 
 🪙 Coinflip
@@ -188,15 +259,17 @@ Bet : ${bet}
 
 Result : HEAD
 
-🎉 You Won +${reward} Coins
+🎉 You Won
++${reward} Coins
 
-━━━━━━━━━━━━━━━━━━━━━━` );
+━━━━━━━━━━━━━━━━━━━━━━`
+        );
 
-} else {
-    user.wallet -= bet;
+      } else {
 
-    flipMsg.edit(
+        user.wallet -= bet;
 
+        flipMsg.edit(
 `━━━━━━━━━━━━━━━━━━━━━━
 
 🪙 Coinflip
@@ -205,16 +278,21 @@ Bet : ${bet}
 
 Result : TAIL
 
-💀 You Lost -${bet} Coins
+💀 You Lost
+-${bet} Coins
 
-━━━━━━━━━━━━━━━━━━━━━━` ); }
+━━━━━━━━━━━━━━━━━━━━━━`
+        );
 
-saveDB();
+      }
 
-}, 2000);
+      saveDB();
 
-}
+    }, 2000);
+
+  }
 
 });
 
-// Token from Railway environment variables client.login(process.env.TOKEN);
+// Railway ENV token
+client.login(process.env.TOKEN);
