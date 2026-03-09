@@ -3,11 +3,11 @@ const fs = require("fs");
 require("dotenv").config();
 
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
-  ]
+intents:[
+GatewayIntentBits.Guilds,
+GatewayIntentBits.GuildMessages,
+GatewayIntentBits.MessageContent
+]
 });
 
 const PREFIXES = ["s","spark"];
@@ -17,11 +17,11 @@ const MAX_BET = 100000;
 
 function getPrefix(message){
 
-  const msg = message.content.toLowerCase();
+const msg = message.content.toLowerCase();
 
-  for(const p of PREFIXES){
-    if(msg.startsWith(p + " ")) return p;
-  }
+for(const p of PREFIXES){
+if(msg.startsWith(p+" ")) return p;
+}
 
 }
 
@@ -61,10 +61,10 @@ return users[id];
 
 function getRank(level){
 
-if(level >= 41) return "👑 Mythic";
-if(level >= 31) return "💎 Diamond";
-if(level >= 21) return "🥇 Gold";
-if(level >= 11) return "🥈 Silver";
+if(level>=41) return "👑 Mythic";
+if(level>=31) return "💎 Diamond";
+if(level>=21) return "🥇 Gold";
+if(level>=11) return "🥈 Silver";
 return "🥉 Bronze";
 
 }
@@ -75,11 +75,13 @@ function xpBar(xp,level){
 
 const required = (level+1)*2500;
 
-const percent = xp/required;
+const percent = Math.floor((xp/required)*100);
 
-const filled = Math.floor(percent*10);
+const filled = Math.floor(percent/10);
 
-return "█".repeat(filled)+"░".repeat(10-filled);
+const bar = "█".repeat(filled)+"░".repeat(10-filled);
+
+return `${bar} ${percent}%`;
 
 }
 
@@ -91,7 +93,7 @@ console.log("⚡ Spark Bot Online: "+client.user.tag);
 
 // ================= MESSAGE =================
 
-client.on("messageCreate", async message=>{
+client.on("messageCreate",async message=>{
 
 if(message.author.bot) return;
 
@@ -122,14 +124,13 @@ user.wallet += reward;
 const oldRank = getRank(user.level-1);
 const newRank = getRank(user.level);
 
-const embed = new EmbedBuilder()
+const lvlEmbed = new EmbedBuilder()
 .setColor("Green")
 .setTitle("⭐ LEVEL UP")
 .setDescription(`━━━━━━━━━━━━━━━━━━━━━━
 
 ${message.author.username}
 
-⬆ Level
 ${user.level-1} → ${user.level}
 
 💰 Reward
@@ -137,7 +138,7 @@ ${user.level-1} → ${user.level}
 
 ━━━━━━━━━━━━━━━━━━━━━━`);
 
-message.channel.send({embeds:[embed]});
+message.channel.send({embeds:[lvlEmbed]});
 
 if(oldRank !== newRank){
 
@@ -152,8 +153,7 @@ ${message.author.username}
 
 ${newRank} Rank Unlocked
 
-💎 Reward
-+100 Gems
+💎 +100 Gems
 
 ━━━━━━━━━━━━━━━━━━━━━━`);
 
@@ -170,13 +170,15 @@ save();
 if(cmd==="help"){
 
 const embed = new EmbedBuilder()
+
 .setColor("Blue")
 .setTitle("⚡ SPARK BOT COMMANDS")
+
 .setDescription(`━━━━━━━━━━━━━━━━━━━━━━
 
 💰 ECONOMY
-s daily
 s bal
+s daily
 s deposit <amount>
 s withdraw <amount>
 
@@ -199,8 +201,10 @@ return message.reply({embeds:[embed]});
 if(cmd==="bal"||cmd==="balance"){
 
 const embed = new EmbedBuilder()
+
 .setColor("Gold")
 .setTitle("💰 SPARK BALANCE")
+
 .setDescription(`━━━━━━━━━━━━━━━━━━━━━━
 
 👤 ${message.author.username}
@@ -220,7 +224,6 @@ return message.reply({embeds:[embed]});
 if(cmd==="daily"){
 
 const now = Date.now();
-
 const cooldown = 86400000;
 
 if(now-user.lastDaily < cooldown){
@@ -231,14 +234,7 @@ const h = Math.floor(remaining/3600000);
 const m = Math.floor((remaining%3600000)/60000);
 const s = Math.floor((remaining%60000)/1000);
 
-const embed = new EmbedBuilder()
-.setColor("Red")
-.setTitle("⏳ DAILY COOLDOWN")
-.setDescription(`Next Daily In
-
-${h}h ${m}m ${s}s`);
-
-return message.reply({embeds:[embed]});
+return message.reply(`Next Daily In ${h}h ${m}m ${s}s`);
 
 }
 
@@ -247,14 +243,7 @@ user.lastDaily = now;
 
 save();
 
-const embed = new EmbedBuilder()
-.setColor("Green")
-.setTitle("🎁 DAILY REWARD")
-.setDescription(`💰 Reward : 1000 Coins
-
-💵 Wallet : ${user.wallet}`);
-
-return message.reply({embeds:[embed]});
+return message.reply("🎁 Daily Reward +1000 Coins");
 
 }
 
@@ -267,9 +256,12 @@ const rank = getRank(user.level);
 const bar = xpBar(user.xp,user.level);
 
 const embed = new EmbedBuilder()
+
 .setColor("Blue")
 .setTitle("👤 PLAYER PROFILE")
+
 .setThumbnail(message.author.displayAvatarURL())
+
 .setDescription(`━━━━━━━━━━━━━━━━━━━━━━
 
 User : ${message.author.username}
@@ -303,9 +295,12 @@ const rank = getRank(user.level);
 const bar = xpBar(user.xp,user.level);
 
 const embed = new EmbedBuilder()
+
 .setColor("Gold")
 .setTitle("🏆 SPARK RANK")
+
 .setThumbnail(message.author.displayAvatarURL())
+
 .setDescription(`━━━━━━━━━━━━━━━━━━━━━━
 
 User : ${message.author.username}
@@ -378,7 +373,7 @@ if(cmd==="cf"){
 
 let amount = args[0];
 
-if(!amount) return message.reply("Enter bet amount");
+if(!amount) return message.reply("Enter bet");
 
 let bet;
 
@@ -390,25 +385,41 @@ return message.reply("Not enough coins");
 
 user.wallet -= bet;
 
-const msg = await message.reply("🪙 Flipping...");
+save();
 
-await new Promise(r=>setTimeout(r,800));
+const msg = await message.reply("🪙 Flipping Coin...");
 
-if(Math.random()<0.25){
+const animation=["🪙","🔘","🪙","🔘","🪙"];
 
-const win = bet*2;
+for(const frame of animation){
 
-user.wallet += win;
+await new Promise(r=>setTimeout(r,400));
+
+await msg.edit(`Flipping... ${frame}`);
+
+}
+
+const win = Math.random()<0.25;
+
+if(win){
+
+const winnings = bet*2;
+
+user.wallet += winnings;
 
 save();
 
-msg.edit(`🪙 You Won ${win}`);
+return msg.edit(`🪙 HEAD
+
+🎉 You Won ${winnings}`);
 
 }else{
 
 save();
 
-msg.edit(`💀 You Lost ${bet}`);
+return msg.edit(`🔘 TAIL
+
+💀 You Lost ${bet}`);
 
 }
 
@@ -452,17 +463,19 @@ await msg.edit(`🎰 ${roll.join(" ")}`);
 
 }
 
-const win=Math.random()<0.5;
+const win = Math.random()<0.5;
 
 if(!win){
 
 save();
 
-return msg.edit(`🎰 ${roll.join(" ")}\n\n💀 You Lost ${bet}`);
+return msg.edit(`🎰 ${roll.join(" ")}
+
+💀 You Lost ${bet}`);
 
 }
 
-const symbol=slots[Math.floor(Math.random()*slots.length)];
+const symbol = slots[Math.floor(Math.random()*slots.length)];
 
 roll=[symbol,symbol,symbol];
 
@@ -473,7 +486,7 @@ else if(symbol==="🥭") multiplier=2;
 else if(symbol==="🍒") multiplier=2;
 else if(symbol==="🍉") multiplier=1;
 
-const winnings=bet*multiplier;
+const winnings = bet*multiplier;
 
 user.wallet += winnings;
 
@@ -481,7 +494,7 @@ save();
 
 msg.edit(`🎰 ${roll.join(" ")}
 
-💰 Multiplier ${multiplier}x
+💰 ${multiplier}x
 🏆 Won ${winnings}`);
 
 }
