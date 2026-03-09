@@ -1,502 +1,432 @@
-// ====================================================== // SPARK RPG DISCORD BOT (PRO VERSION) // Economy + RPG + Real Battle + Casino Animation + Help UI // ======================================================
+// ======================================================
+// SPARK RPG DISCORD BOT (PRO VERSION)
+// Economy + RPG + Real Battle + Casino Animation + Help UI
+// ======================================================
 
-const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js'); const fs = require('fs'); require('dotenv').config();
+const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
+const fs = require('fs');
+require('dotenv').config();
 
-// ================= CLIENT ================= const client = new Client({ intents: [ GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers ] });
+// ================= CLIENT =================
 
-// ================= CONFIG ================= const PREFIXES = ["s ", "spark "]; const OWNER_ID = "PUT_OWNER_ID_HERE";
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers
+  ]
+});
 
-// ================= DATABASE ================= if (!fs.existsSync('./database')) fs.mkdirSync('./database'); if (!fs.existsSync('./database/users.json')) fs.writeFileSync('./database/users.json', '{}');
+// ================= CONFIG =================
+
+const PREFIXES = ["s ", "spark "];
+const OWNER_ID = "PUT_OWNER_ID_HERE";
+
+// ================= DATABASE =================
+
+if (!fs.existsSync('./database')) fs.mkdirSync('./database');
+
+if (!fs.existsSync('./database/users.json'))
+  fs.writeFileSync('./database/users.json', '{}');
 
 let users = JSON.parse(fs.readFileSync('./database/users.json'));
 
-function save() { fs.writeFileSync('./database/users.json', JSON.stringify(users, null, 2)); }
+function save() {
+  fs.writeFileSync('./database/users.json', JSON.stringify(users, null, 2));
+}
 
 function getUser(id) {
 
-if (!users[id]) {
+  if (!users[id]) {
 
-users[id] = {
+    users[id] = {
 
-  wallet: 500,
-  bank: 0,
-  gems: 10,
+      wallet: 500,
+      bank: 0,
+      gems: 10,
 
-  xp: 0,
-  rank: 1,
+      xp: 0,
+      rank: 1,
 
-  dragon: null,
-  weapon: null,
-  armour: null,
+      dragon: null,
+      weapon: null,
+      armour: null,
 
-  dragonLevel: 1,
+      dragonLevel: 1,
 
-  wins: 0,
-  loses: 0,
+      wins: 0,
+      loses: 0,
 
-  lastDaily: 0,
+      lastDaily: 0,
 
-  inventory: {
-    dragons: [],
-    weapons: [],
-    armours: []
+      inventory: {
+        dragons: [],
+        weapons: [],
+        armours: []
+      }
+
+    };
+
   }
 
-};
+  return users[id];
 
 }
-
-return users[id]; }
 
 // ================= RPG ITEMS =================
 
 const dragons = {
 
-grog: { name: "Stone Grog", power: 40, price: 2000 },
-
-blaze: { name: "Blaze Dragon", power: 60, price: 5000 },
-
-frost: { name: "Frost Dragon", power: 75, price: 8000 },
-
-shadow: { name: "Shadow Dragon", power: 90, price: 12000 },
-
-rex: { name: "Thunder Rex", power: 110, price: 16000 }
+  grog: { name: "Stone Grog", power: 40, price: 2000 },
+  blaze: { name: "Blaze Dragon", power: 60, price: 5000 },
+  frost: { name: "Frost Dragon", power: 75, price: 8000 },
+  shadow: { name: "Shadow Dragon", power: 90, price: 12000 },
+  rex: { name: "Thunder Rex", power: 110, price: 16000 }
 
 };
 
 const weapons = {
 
-sword: { name: "Flame Sword", power: 20, price: 1500 },
-
-axe: { name: "Titan Axe", power: 30, price: 3000 },
-
-blade: { name: "Shadow Blade", power: 40, price: 5000 },
-
-hammer: { name: "War Hammer", power: 55, price: 7000 },
-
-godblade: { name: "God Blade", power: 70, price: 10000 }
+  sword: { name: "Flame Sword", power: 20, price: 1500 },
+  axe: { name: "Titan Axe", power: 30, price: 3000 },
+  blade: { name: "Shadow Blade", power: 40, price: 5000 },
+  hammer: { name: "War Hammer", power: 55, price: 7000 },
+  godblade: { name: "God Blade", power: 70, price: 10000 }
 
 };
 
 const armours = {
 
-shield: { name: "Dragon Shield", power: 15, price: 2000 },
-
-knight: { name: "Knight Armour", power: 25, price: 4000 },
-
-frostplate: { name: "Frost Plate", power: 35, price: 6000 },
-
-shadowguard: { name: "Shadow Guard", power: 50, price: 9000 },
-
-godarmor: { name: "God Armor", power: 70, price: 13000 }
+  shield: { name: "Dragon Shield", power: 15, price: 2000 },
+  knight: { name: "Knight Armour", power: 25, price: 4000 },
+  frostplate: { name: "Frost Plate", power: 35, price: 6000 },
+  shadowguard: { name: "Shadow Guard", power: 50, price: 9000 },
+  godarmor: { name: "God Armor", power: 70, price: 13000 }
 
 };
 
-// ================= READY ================= client.once('ready', () => {
+// ================= READY =================
 
-console.log("Spark RPG Bot Online: " + client.user.tag);
+client.once('ready', () => {
+
+  console.log("⚡ Spark RPG Bot Online: " + client.user.tag);
 
 });
 
-// ================= PREFIX ================= function getPrefix(msg) {
+// ================= PREFIX =================
 
-return PREFIXES.find(p => msg.content.toLowerCase().startsWith(p));
+function getPrefix(msg) {
+
+  return PREFIXES.find(p =>
+    msg.content.toLowerCase().startsWith(p)
+  );
 
 }
 
-// ================= DRAGON LEVEL SYSTEM ================= function dragonPower(user) {
+// ================= DRAGON POWER =================
 
-const base = dragons[user.dragon]?.power || 10;
+function dragonPower(user) {
 
-return base + (user.dragonLevel * 5);
+  const base = dragons[user.dragon]?.power || 10;
+
+  return base + (user.dragonLevel * 5);
 
 }
 
 function levelDragon(user) {
 
-user.dragonLevel++;
+  user.dragonLevel++;
 
 }
 
-// ================= MESSAGE ================= client.on('messageCreate', async message => {
+// ================= MESSAGE =================
 
-if (message.author.bot) return;
+client.on('messageCreate', async message => {
 
-const prefix = getPrefix(message);
+  if (message.author.bot) return;
 
-if (!prefix) return;
+  const prefix = getPrefix(message);
 
-const args = message.content.slice(prefix.length).trim().split(/ +/);
+  if (!prefix) return;
 
-const cmd = args.shift().toLowerCase();
+  const args = message.content
+    .slice(prefix.length)
+    .trim()
+    .split(/ +/);
 
-const user = getUser(message.author.id);
+  const cmd = args.shift().toLowerCase();
 
-// ================= HELP =================
+  const user = getUser(message.author.id);
 
-if (cmd === "help") {
+  // ================= HELP =================
 
-const embed = new EmbedBuilder()
+  if (cmd === "help") {
 
-  .setTitle("Spark RPG Commands")
+    const embed = new EmbedBuilder()
+      .setTitle("Spark RPG Commands")
+      .setColor("Blue")
+      .setDescription(
+        "**Economy**\n" +
+        "s bal\n" +
+        "s daily\n\n" +
+        "**RPG**\n" +
+        "s shop\n" +
+        "s buy <item>\n" +
+        "s inv\n" +
+        "s equip <item>\n\n" +
+        "**Battle**\n" +
+        "s battle @user\n\n" +
+        "**Casino**\n" +
+        "s roll <bet>"
+      );
 
-  .setColor("Blue")
+    return message.reply({ embeds: [embed] });
 
-  .setDescription(
+  }
 
-    "Economy\n" +
+  // ================= BAL =================
 
-    "s bal\n" +
+  if (cmd === "bal" || cmd === "balance") {
 
-    "s daily\n\n" +
+    const embed = new EmbedBuilder()
+      .setTitle("Balance")
+      .setColor("Gold")
+      .setDescription(
+        `Wallet: ${user.wallet}\nBank: ${user.bank}\nGems: ${user.gems}`
+      );
 
-    "RPG\n" +
+    return message.reply({ embeds: [embed] });
 
-    "s shop\n" +
+  }
 
-    "s buy <item>\n" +
+  // ================= DAILY =================
 
-    "s inv\n" +
+  if (cmd === "daily") {
 
-    "s equip <item>\n\n" +
+    const now = Date.now();
 
-    "Battle\n" +
+    const cooldown = 86400000;
 
-    "s battle @user\n\n" +
+    if (now - user.lastDaily < cooldown) {
 
-    "Casino\n" +
+      const remaining = cooldown - (now - user.lastDaily);
 
-    "s roll <bet>"
+      const h = Math.floor(remaining / 3600000);
 
-  );
+      const m = Math.floor((remaining % 3600000) / 60000);
 
-return message.reply({ embeds: [embed] });
+      return message.reply(`Come back in ${h}h ${m}m`);
 
-}
+    }
 
-// ================= BALANCE =================
+    user.wallet += 500;
 
-if (cmd === "bal" || cmd === "balance") {
+    user.lastDaily = now;
 
-const embed = new EmbedBuilder()
+    save();
 
-  .setTitle("Balance")
+    return message.reply("Daily reward claimed: 500 coins");
 
-  .setColor("Gold")
+  }
 
-  .setDescription(`Wallet: ${user.wallet}\nBank: ${user.bank}\nGems: ${user.gems}`);
+  // ================= SHOP =================
 
-return message.reply({ embeds: [embed] });
+  if (cmd === "shop") {
 
-}
+    const embed = new EmbedBuilder()
+      .setTitle("RPG Shop")
+      .setColor("Green")
+      .setDescription(
+        "**Dragons**\n" +
+        "grog 2000\nblaze 5000\nfrost 8000\nshadow 12000\nrex 16000\n\n" +
+        "**Weapons**\n" +
+        "sword 1500\naxe 3000\nblade 5000\nhammer 7000\ngodblade 10000\n\n" +
+        "**Armours**\n" +
+        "shield 2000\nknight 4000\nfrostplate 6000\nshadowguard 9000\ngodarmor 13000"
+      );
 
-// ================= DAILY =================
+    return message.reply({ embeds: [embed] });
 
-if (cmd === "daily") {
+  }
 
-const now = Date.now();
+  // ================= BUY =================
 
-const cooldown = 86400000;
+  if (cmd === "buy") {
 
-if (now - user.lastDaily < cooldown) {
+    const item = args[0];
 
-  const remaining = cooldown - (now - user.lastDaily);
+    if (!item) return message.reply("Enter item name");
 
-  const h = Math.floor(remaining / 3600000);
+    if (dragons[item]) {
 
-  const m = Math.floor((remaining % 3600000) / 60000);
+      const d = dragons[item];
 
-  return message.reply(`Come back in ${h}h ${m}m`);
+      if (user.wallet < d.price)
+        return message.reply("Not enough coins");
 
-}
+      user.wallet -= d.price;
 
-user.wallet += 500;
+      user.inventory.dragons.push(item);
 
-user.lastDaily = now;
+      save();
 
-save();
+      return message.reply(`Bought ${d.name}`);
 
-return message.reply("Daily reward claimed: 500 coins");
+    }
 
-}
+    if (weapons[item]) {
 
-// ================= SHOP =================
+      const w = weapons[item];
 
-if (cmd === "shop") {
+      if (user.wallet < w.price)
+        return message.reply("Not enough coins");
 
-const embed = new EmbedBuilder()
+      user.wallet -= w.price;
 
-  .setTitle("RPG Shop")
+      user.inventory.weapons.push(item);
 
-  .setColor("Green")
+      save();
 
-  .setDescription(
+      return message.reply(`Bought ${w.name}`);
 
-    "Dragons\n" +
+    }
 
-    "grog 2000\n" +
+    if (armours[item]) {
 
-    "blaze 5000\n" +
+      const a = armours[item];
 
-    "frost 8000\n" +
+      if (user.wallet < a.price)
+        return message.reply("Not enough coins");
 
-    "shadow 12000\n" +
+      user.wallet -= a.price;
 
-    "rex 16000\n\n" +
+      user.inventory.armours.push(item);
 
-    "Weapons\n" +
+      save();
 
-    "sword 1500\n" +
+      return message.reply(`Bought ${a.name}`);
 
-    "axe 3000\n" +
+    }
 
-    "blade 5000\n" +
+    return message.reply("Item not found");
 
-    "hammer 7000\n" +
+  }
 
-    "godblade 10000\n\n" +
+  // ================= INVENTORY =================
 
-    "Armours\n" +
+  if (cmd === "inv" || cmd === "inventory") {
 
-    "shield 2000\n" +
+    const embed = new EmbedBuilder()
+      .setTitle("Inventory")
+      .setColor("Purple")
+      .addFields(
+        { name: "Dragons", value: user.inventory.dragons.join(", ") || "None" },
+        { name: "Weapons", value: user.inventory.weapons.join(", ") || "None" },
+        { name: "Armours", value: user.inventory.armours.join(", ") || "None" }
+      );
 
-    "knight 4000\n" +
+    return message.reply({ embeds: [embed] });
 
-    "frostplate 6000\n" +
+  }
 
-    "shadowguard 9000\n" +
+  // ================= EQUIP =================
 
-    "godarmor 13000"
+  if (cmd === "equip") {
 
-  );
+    const item = args[0];
 
-return message.reply({ embeds: [embed] });
+    if (user.inventory.dragons.includes(item)) {
 
-}
+      user.dragon = item;
 
-// ================= BUY =================
+      save();
 
-if (cmd === "buy") {
+      return message.reply(`Equipped dragon ${item}`);
 
-const item = args[0];
+    }
 
-if (dragons[item]) {
+    if (user.inventory.weapons.includes(item)) {
 
-  const d = dragons[item];
+      user.weapon = item;
 
-  if (user.wallet < d.price) return message.reply("Not enough coins");
+      save();
 
-  user.wallet -= d.price;
+      return message.reply(`Equipped weapon ${item}`);
 
-  user.inventory.dragons.push(item);
+    }
 
-  save();
+    if (user.inventory.armours.includes(item)) {
 
-  return message.reply(`Bought ${d.name}`);
+      user.armour = item;
 
-}
+      save();
 
-if (weapons[item]) {
+      return message.reply(`Equipped armour ${item}`);
 
-  const w = weapons[item];
+    }
 
-  if (user.wallet < w.price) return message.reply("Not enough coins");
+    return message.reply("Item not in inventory");
 
-  user.wallet -= w.price;
+  }
 
-  user.inventory.weapons.push(item);
+  // ================= BATTLE =================
 
-  save();
+  if (cmd === "battle") {
 
-  return message.reply(`Bought ${w.name}`);
+    const target = message.mentions.users.first();
 
-}
+    if (!target) return message.reply("Mention opponent");
 
-if (armours[item]) {
+    const enemy = getUser(target.id);
 
-  const a = armours[item];
+    let p1 = dragonPower(user) + (weapons[user.weapon]?.power || 0);
 
-  if (user.wallet < a.price) return message.reply("Not enough coins");
+    let p2 = dragonPower(enemy) + (weapons[enemy.weapon]?.power || 0);
 
-  user.wallet -= a.price;
+    let hp1 = 100;
+    let hp2 = 100;
 
-  user.inventory.armours.push(item);
+    while (hp1 > 0 && hp2 > 0) {
 
-  save();
+      hp2 -= Math.floor(Math.random() * p1);
 
-  return message.reply(`Bought ${a.name}`);
+      if (hp2 <= 0) break;
 
-}
+      hp1 -= Math.floor(Math.random() * p2);
 
-}
+    }
 
-// ================= INVENTORY =================
+    let winner;
 
-if (cmd === "inv" || cmd === "inventory") {
+    if (hp1 > hp2) {
 
-const embed = new EmbedBuilder()
+      winner = message.author;
 
-  .setTitle("Inventory")
+      user.wins++;
 
-  .setColor("Purple")
+      user.wallet += 500;
 
-  .addFields(
+      levelDragon(user);
 
-    { name: "Dragons", value: user.inventory.dragons.join(", ") || "None" },
+    } else {
 
-    { name: "Weapons", value: user.inventory.weapons.join(", ") || "None" },
+      winner = target;
 
-    { name: "Armours", value: user.inventory.armours.join(", ") || "None" }
+      user.loses++;
 
-  );
+    }
 
-return message.reply({ embeds: [embed] });
+    save();
 
-}
+    const embed = new EmbedBuilder()
+      .setTitle("Battle Result")
+      .setDescription(`Winner: <@${winner.id}>`)
+      .setColor("Red");
 
-// ================= EQUIP =================
+    return message.reply({ embeds: [embed] });
 
-if (cmd === "equip") {
-
-const item = args[0];
-
-if (user.inventory.dragons.includes(item)) {
-
-  user.dragon = item;
-
-  save();
-
-  return message.reply(`Equipped dragon ${item}`);
-
-}
-
-if (user.inventory.weapons.includes(item)) {
-
-  user.weapon = item;
-
-  save();
-
-  return message.reply(`Equipped weapon ${item}`);
-
-}
-
-if (user.inventory.armours.includes(item)) {
-
-  user.armour = item;
-
-  save();
-
-  return message.reply(`Equipped armour ${item}`);
-
-}
-
-}
-
-// ================= REAL BATTLE =================
-
-if (cmd === "battle") {
-
-const target = message.mentions.users.first();
-
-if (!target) return message.reply("Mention opponent");
-
-const enemy = getUser(target.id);
-
-let p1 = dragonPower(user) + (weapons[user.weapon]?.power || 0);
-
-let p2 = dragonPower(enemy) + (weapons[enemy.weapon]?.power || 0);
-
-let hp1 = 100;
-
-let hp2 = 100;
-
-while (hp1 > 0 && hp2 > 0) {
-
-  hp2 -= Math.floor(Math.random() * p1);
-
-  if (hp2 <= 0) break;
-
-  hp1 -= Math.floor(Math.random() * p2);
-
-}
-
-let winner;
-
-if (hp1 > hp2) {
-
-  winner = message.author;
-
-  user.wins++;
-
-  user.wallet += 500;
-
-  levelDragon(user);
-
-} else {
-
-  winner = target;
-
-  user.loses++;
-
-}
-
-save();
-
-const embed = new EmbedBuilder()
-
-  .setTitle("Battle Result")
-
-  .setDescription(`Winner: ${winner}`)
-
-  .setColor("Red");
-
-return message.reply({ embeds: [embed] });
-
-}
-
-// ================= CASINO ROLL =================
-
-if (cmd === "roll") {
-
-const bet = parseInt(args[0]);
-
-if (!bet) return message.reply("Enter bet amount");
-
-if (user.wallet < bet) return message.reply("Not enough coins");
-
-const msg = await message.reply("Rolling...");
-
-const numbers = [1,2,3,4,5,6];
-
-for (let i = 0; i < 5; i++) {
-
-  const r = numbers[Math.floor(Math.random()*6)];
-
-  await msg.edit(`Rolling ${r}`);
-
-  await new Promise(r => setTimeout(r, 600));
-
-}
-
-const final = numbers[Math.floor(Math.random()*6)];
-
-if (final >= 4) {
-
-  user.wallet += bet;
-
-  await msg.edit(`Result ${final}\nYou won ${bet}`);
-
-} else {
-
-  user.wallet -= bet;
-
-  await msg.edit(`Result ${final}\nYou lost ${bet}`);
-
-}
-
-save();
-
-}
+  }
 
 });
 
