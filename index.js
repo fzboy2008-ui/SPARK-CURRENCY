@@ -1,6 +1,4 @@
-// SPARK BOT V3 - LARGE RPG SYSTEM // Single-file version for simple hosting (Railway / Replit) // Contains: Economy, Casino, Inventory, Equipment, Dragons, Weapons, Armour, // Level/XP, Loot Drops, Hunt System, PvP Battles, Boss Raids, Leaderboard, Quests
-
-const { Client, GatewayIntentBits, EmbedBuilder } = require("discord.js"); const fs = require("fs");
+// SPARK BOT V3 - FIXED VERSION (Railway Ready) const { Client, GatewayIntentBits, EmbedBuilder } = require("discord.js"); const fs = require("fs");
 
 const client = new Client({ intents: [ GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent ] });
 
@@ -19,7 +17,6 @@ function getUser(id){
 if(!db[id]){
 
 db[id] = {
-
   wallet:0,
   bank:0,
   gems:0,
@@ -45,14 +42,11 @@ db[id] = {
     armours:[],
     loot:[]
   }
-
 }
 
 }
 
-return db[id];
-
-}
+return db[id]; }
 
 function addXP(user, amount){
 
@@ -60,36 +54,15 @@ user.xp += amount;
 
 const needed = user.level * 200;
 
-if(user.xp >= needed){
+if(user.xp >= needed){ user.level++; user.xp = 0; return true; }
 
-user.level++;
-user.xp = 0;
+return false; }
 
-return true;
+const dragons = { Phoenix:{price:10000, atk:15}, Triton:{price:9000, atk:13}, Rex:{price:8000, atk:12}, Zephyr:{price:7000, atk:10}, Grog:{price:6000, atk:9} }
 
-}
+const weapons = { Sword:{price:2000, atk:5}, Katana:{price:3000, atk:7}, Axe:{price:3500, atk:8}, Hammer:{price:4000, atk:10}, Dagger:{price:1500, atk:3} }
 
-return false;
-
-}
-
-const dragons = {
-
-Phoenix:{price:10000, atk:15}, Triton:{price:9000, atk:13}, Rex:{price:8000, atk:12}, Zephyr:{price:7000, atk:10}, Grog:{price:6000, atk:9},
-
-}
-
-const weapons = {
-
-Sword:{price:2000, atk:5}, Katana:{price:3000, atk:7}, Axe:{price:3500, atk:8}, Hammer:{price:4000, atk:10}, Dagger:{price:1500, atk:3}
-
-}
-
-const armour = {
-
-Leather:{price:2000, hp:10}, Iron:{price:3500, hp:20}, Steel:{price:5000, hp:30}, DragonScale:{price:8000, hp:50}
-
-}
+const armour = { Leather:{price:2000, hp:10}, Iron:{price:3500, hp:20}, Steel:{price:5000, hp:30}, DragonScale:{price:8000, hp:50} }
 
 const lootTable=[ "Ancient Coin", "Dragon Tooth", "Mystic Gem", "Broken Sword", "Golden Feather", "Magic Dust" ]
 
@@ -107,23 +80,15 @@ const user = getUser(message.author.id);
 
 if(cmd==="help"){
 
-const embed=new EmbedBuilder()
+const embed=new EmbedBuilder() .setColor("#ffaa00") .setTitle("⚡ SPARK BOT COMMANDS") .setDescription(`
 
-.setColor("#ffaa00")
+💰 Economy s bal s daily
 
-.setTitle("⚡ SPARK BOT V3 COMMANDS")
-
-.setDescription(`
-
-💰 Economy s bal s daily s deposit s withdraw
-
-🎰 Casino s cf s slot
-
-🎒 RPG s profile s inv s dragons s weapons s armours s buy s set
+🎒 RPG s profile s inv s dragons s buy
 
 ⚔ Battle s hunt s battle
 
-🏆 Other s leaderboard s quest
+🏆 Other s leaderboard
 
 `)
 
@@ -135,13 +100,7 @@ message.reply({embeds:[embed]})
 
 if(cmd==="bal"){
 
-const embed=new EmbedBuilder()
-
-.setColor("#00ff88")
-
-.setTitle("💰 Balance")
-
-.setDescription(Wallet: ${user.wallet} Bank: ${user.bank} Gems: ${user.gems} Level: ${user.level} XP: ${user.xp})
+const embed=new EmbedBuilder() .setColor("#00ff88") .setTitle("💰 Balance") .setDescription(Wallet: ${user.wallet}\nBank: ${user.bank}\nGems: ${user.gems}\nLevel: ${user.level}\nXP: ${user.xp})
 
 message.reply({embeds:[embed]})
 
@@ -153,11 +112,7 @@ if(cmd==="daily"){
 
 const now=Date.now(); const cd=86400000;
 
-if(now-user.lastDaily<cd){
-
-return message.reply("Daily already claimed");
-
-}
+if(now-user.lastDaily<cd){ return message.reply("Daily already claimed"); }
 
 const reward=500;
 
@@ -173,17 +128,7 @@ message.reply(🎁 You received ${reward})
 
 if(cmd==="profile"){
 
-const embed=new EmbedBuilder()
-
-.setColor("#00ffee")
-
-.setTitle(${message.author.username} Profile)
-
-.setDescription(` Level: ${user.level} XP: ${user.xp}
-
-Dragon: ${user.dragon ?? "None"} Weapon: ${user.weapon ?? "None"} Armour: ${user.armour ?? "None"}
-
-Wins: ${user.stats.wins} Losses: ${user.stats.losses} Hunts: ${user.stats.hunts} `)
+const embed=new EmbedBuilder() .setColor("#00ffee") .setTitle(${message.author.username} Profile) .setDescription(Level: ${user.level}\nXP: ${user.xp}\n\nDragon: ${user.dragon ?? "None"}\nWeapon: ${user.weapon ?? "None"}\nArmour: ${user.armour ?? "None"}\n\nWins: ${user.stats.wins}\nLosses: ${user.stats.losses}\nHunts: ${user.stats.hunts})
 
 message.reply({embeds:[embed]})
 
@@ -193,25 +138,19 @@ message.reply({embeds:[embed]})
 
 if(cmd==="inv"){
 
-const embed=new EmbedBuilder()
-
-.setColor("#00ffaa")
-
-.setTitle("Inventory")
-
-.addFields( { name:"Dragons", value:user.inventory.dragons.join(", ")||"None" }, { name:"Weapons", value:user.inventory.weapons.join(", ")||"None" }, { name:"Armours", value:user.inventory.armours.join(", ")||"None" }, { name:"Loot", value:user.inventory.loot.join(", ")||"None" } )
+const embed=new EmbedBuilder() .setColor("#00ffaa") .setTitle("Inventory") .addFields( { name:"Dragons", value:user.inventory.dragons.join(", ") || "None" }, { name:"Weapons", value:user.inventory.weapons.join(", ") || "None" }, { name:"Armours", value:user.inventory.armours.join(", ") || "None" }, { name:"Loot", value:user.inventory.loot.join(", ") || "None" } )
 
 message.reply({embeds:[embed]})
 
 }
 
-//////////////// DRAGON SHOP //////////////////
+//////////////// DRAGONS //////////////////
 
 if(cmd==="dragons"){
 
 let list="";
 
-for(const d in dragons){ list+=${d} - ${dragons[d].price}\n }
+for(const d in dragons){ list += ${d} - ${dragons[d].price}\n }
 
 message.reply(list)
 
@@ -241,42 +180,6 @@ return message.reply(Bought ${name})
 
 }
 
-if(type==="weapon"){
-
-if(!weapons[name]) return
-
-const price=weapons[name].price
-
-if(user.wallet<price) return
-
-user.wallet-=price
-
-user.inventory.weapons.push(name)
-
-saveDB()
-
-return message.reply("Weapon bought")
-
-}
-
-if(type==="armour"){
-
-if(!armour[name]) return
-
-const price=armour[name].price
-
-if(user.wallet<price) return
-
-user.wallet-=price
-
-user.inventory.armours.push(name)
-
-saveDB()
-
-return message.reply("Armour bought")
-
-}
-
 }
 
 //////////////// HUNT //////////////////
@@ -287,21 +190,11 @@ user.stats.hunts++
 
 let playerHP=50
 
-if(user.armour){
-
-playerHP+=armour[user.armour].hp
-
-}
+if(user.armour){ playerHP+=armour[user.armour].hp }
 
 let enemyHP=40
 
-while(playerHP>0 && enemyHP>0){
-
-playerHP-=Math.floor(Math.random()*10)
-
-enemyHP-=Math.floor(Math.random()*12)
-
-}
+while(playerHP>0 && enemyHP>0){ playerHP-=Math.floor(Math.random()*10) enemyHP-=Math.floor(Math.random()*12) }
 
 if(playerHP>0){
 
@@ -315,7 +208,7 @@ const levelUp=addXP(user,50)
 
 saveDB()
 
-message.reply(Victory! Loot: ${loot}${levelUp?"\nLEVEL UP!":""})
+message.reply(Victory! Loot: ${loot}${levelUp ? "\nLEVEL UP!" : ""})
 
 }else{
 
@@ -331,19 +224,13 @@ if(cmd==="battle"){
 
 const target=message.mentions.users.first()
 
-if(!target) return
+if(!target) return message.reply("Mention opponent")
 
 const opponent=getUser(target.id)
 
 let hp1=60 let hp2=60
 
-while(hp1>0 && hp2>0){
-
-hp1-=Math.floor(Math.random()*12)
-
-hp2-=Math.floor(Math.random()*12)
-
-}
+while(hp1>0 && hp2>0){ hp1-=Math.floor(Math.random()*12) hp2-=Math.floor(Math.random()*12) }
 
 if(hp1>0){
 
@@ -369,15 +256,7 @@ message.reply("You lost")
 
 if(cmd==="leaderboard"){
 
-const top=Object.entries(db)
-
-.sort((a,b)=>b[1].wallet-a[1].wallet)
-
-.slice(0,10)
-
-.map((u,i)=>${i+1}. <@${u[0]}> - ${u[1].wallet})
-
-.join("\n")
+const top=Object.entries(db) .sort((a,b)=>b[1].wallet-a[1].wallet) .slice(0,10) .map((u,i)=>${i+1}. <@${u[0]}> - ${u[1].wallet}) .join("\n")
 
 message.reply(🏆 Leaderboard\n${top})
 
