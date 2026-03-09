@@ -1,16 +1,12 @@
 {
-"name": "spark-rpg-bot",
-"version": "1.0.0",
-"description": "Spark RPG Discord Bot - Economy + RPG + Battle + Casino",
-"main": "index.js",
-"type": "commonjs",
-"scripts": {
-"start": "node index.js"
-},
-"author": "Spark",
-"license": "MIT",
-"dependencies": {
-"discord.js": "^14.14.1",
-"dotenv": "^16.4.5"
-}
+  "name": "spark-bot",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.4.5"
+  }
 }
