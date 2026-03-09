@@ -4,7 +4,7 @@ const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js'); const
 
 // ================= CLIENT ================= const client = new Client({ intents: [ GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers ] });
 
-// ================= CONFIG ================= const PREFIXES = ["s ", "spark "]; const OWNER_ID = "PUT_OWNER_ID_HERE";
+// ================= CONFIG ================= const PREFIXES = ["s ", "spark "]; const OWNER_ID = "1266728371719508062";
 
 // ================= DATABASE ================= if (!fs.existsSync('./database')) fs.mkdirSync('./database'); if (!fs.existsSync('./database/users.json')) fs.writeFileSync('./database/users.json', '{}');
 
