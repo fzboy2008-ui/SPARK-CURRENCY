@@ -77,6 +77,8 @@ client.on("messageCreate", async message => {
 
   const user = getUser(message.author.id);
 
+  const MAX_BET = 100000;
+
   // ================= HELP =================
 
   if (cmd === "help") {
@@ -94,6 +96,10 @@ client.on("messageCreate", async message => {
 \`s bal\`
 \`s deposit <amount>\`
 \`s withdraw <amount>\`
+
+🎰 CASINO
+\`s cf <amount/all>\`
+\`s slot <amount/all>\`
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
 );
@@ -163,7 +169,6 @@ ${h}h ${m}m ${s}s
     }
 
     user.wallet += 1000;
-
     user.lastDaily = now;
 
     save();
@@ -258,6 +263,138 @@ ${h}h ${m}m ${s}s
 );
 
     return message.reply({ embeds: [embed] });
+
+  }
+
+  // ================= COINFLIP =================
+
+  if (cmd === "cf") {
+
+    let amount = args[0];
+
+    if (!amount) return message.reply("Enter bet amount");
+
+    let bet;
+
+    if (amount === "all") bet = Math.min(user.wallet, MAX_BET);
+    else bet = parseInt(amount);
+
+    if (!bet || bet <= 0) return message.reply("Invalid bet");
+
+    if (bet > MAX_BET) return message.reply("Max bet is 100000");
+
+    if (user.wallet < bet) return message.reply("Not enough coins");
+
+    user.wallet -= bet;
+    save();
+
+    const msg = await message.reply("🪙 Flipping coin...");
+
+    const animation = ["🪙", "💿", "🪙", "💿"];
+
+    for (const a of animation) {
+
+      await new Promise(r => setTimeout(r, 500));
+
+      await msg.edit(`${a} Flipping...`);
+
+    }
+
+    const win = Math.random() < 0.25;
+
+    if (win) {
+
+      const winnings = bet * 2;
+
+      user.wallet += winnings;
+
+      save();
+
+      return msg.edit(
+`🪙 **Coinflip Result**
+
+🎉 You Won!
+
+💰 Won : ${winnings}`
+);
+
+    } else {
+
+      return msg.edit(
+`🪙 **Coinflip Result**
+
+💀 You Lost : ${bet}`
+);
+
+    }
+
+  }
+
+  // ================= SLOT =================
+
+  if (cmd === "slot") {
+
+    let amount = args[0];
+
+    if (!amount) return message.reply("Enter bet amount");
+
+    let bet;
+
+    if (amount === "all") bet = Math.min(user.wallet, MAX_BET);
+    else bet = parseInt(amount);
+
+    if (!bet || bet <= 0) return message.reply("Invalid bet");
+
+    if (bet > MAX_BET) return message.reply("Max bet is 100000");
+
+    if (user.wallet < bet) return message.reply("Not enough coins");
+
+    user.wallet -= bet;
+    save();
+
+    const slots = ["💎","🥭","🍒","🍉"];
+
+    const msg = await message.reply("🎰 Spinning...");
+
+    let roll;
+
+    for (let i = 0; i < 3; i++) {
+
+      roll = [
+        slots[Math.floor(Math.random()*slots.length)],
+        slots[Math.floor(Math.random()*slots.length)],
+        slots[Math.floor(Math.random()*slots.length)]
+      ];
+
+      await new Promise(r => setTimeout(r, 700));
+
+      await msg.edit(`🎰 ${roll.join(" ")}`);
+
+    }
+
+    const win = Math.random() < 0.50;
+
+    if (!win) return msg.edit(`🎰 ${roll.join(" ")}\n\n💀 You Lost ${bet}`);
+
+    let multiplier = 0;
+
+    if (roll[0]==="💎" && roll[1]==="💎" && roll[2]==="💎") multiplier = 3;
+    else if (roll[0]==="🥭" && roll[1]==="🥭" && roll[2]==="🥭") multiplier = 2;
+    else if (roll[0]==="🍒" && roll[1]==="🍒" && roll[2]==="🍒") multiplier = 2;
+    else if (roll[0]==="🍉" && roll[1]==="🍉" && roll[2]==="🍉") multiplier = 1;
+
+    const winnings = bet * multiplier;
+
+    user.wallet += winnings;
+
+    save();
+
+    msg.edit(
+`🎰 ${roll.join(" ")}
+
+💰 Multiplier : ${multiplier}x
+🏆 Won : ${winnings}`
+);
 
   }
 
