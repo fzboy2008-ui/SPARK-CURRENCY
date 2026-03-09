@@ -1,20 +1,12 @@
 {
-  "name": "sparkle-empire-bot",
-  "version": "1.0.0",
-  "description": "Discord RPG bot with economy, dragons, battles, and leaderboard systems",
-  "main": "index.js",
-  "scripts": {
-    "start": "node index.js"
-  },
-  "author": "FZBOY",
-  "license": "MIT",
-  "dependencies": {
-    "discord.js": "^14.15.0",
-    "fs-extra": "^11.1.1",
-    "mongoose": "^7.3.1",
-    "node-fetch": "^3.4.0"
-  },
-  "engines": {
-    "node": ">=18.0.0"
-  }
+"name": "sparkbot",
+"version": "1.0.0",
+"main": "index.js",
+"scripts": {
+"start": "node index.js"
+},
+"dependencies": {
+"discord.js": "^14.14.1",
+"dotenv": "^16.4.0"
+}
 }
