@@ -4,7 +4,7 @@ const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js'); const
 
 // ================= CLIENT ================= const client = new Client({ intents: [ GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers ] });
 
-// ================= CONFIG ================= const PREFIXES = ["s ", "spark "]; const OWNER_ID = "1266728371719508062";
+// ================= CONFIG ================= const PREFIXES = ["s ", "spark "]; const OWNER_ID = "PUT_OWNER_ID_HERE";
 
 // ================= DATABASE ================= if (!fs.existsSync('./database')) fs.mkdirSync('./database'); if (!fs.existsSync('./database/users.json')) fs.writeFileSync('./database/users.json', '{}');
 
@@ -94,7 +94,7 @@ godarmor: { name: "God Armor", power: 70, price: 13000 }
 
 // ================= READY ================= client.once('ready', () => {
 
-console.log(⚡ Spark RPG Bot Online: ${client.user.tag});
+console.log("Spark RPG Bot Online: " + client.user.tag);
 
 });
 
