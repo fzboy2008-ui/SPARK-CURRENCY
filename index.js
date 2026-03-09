@@ -1,497 +1,744 @@
-const { 
- Client,
- GatewayIntentBits,
- EmbedBuilder
-} = require("discord.js");
-
+const { Client, GatewayIntentBits, EmbedBuilder } = require("discord.js");
 const fs = require("fs");
+require("dotenv").config();
 
 const client = new Client({
- intents:[
-  GatewayIntentBits.Guilds,
-  GatewayIntentBits.GuildMessages,
-  GatewayIntentBits.MessageContent
- ]
+intents:[
+GatewayIntentBits.Guilds,
+GatewayIntentBits.GuildMessages,
+GatewayIntentBits.MessageContent
+]
 });
 
-const prefix = "s ";
+const PREFIXES = ["s","spark"];
+const MAX_BET = 100000;
 
-let users = {};
+// ================= PREFIX =================
 
-if(fs.existsSync("users.json")){
- users = JSON.parse(fs.readFileSync("users.json"));
+function getPrefix(message){
+
+const msg = message.content.toLowerCase();
+
+for(const p of PREFIXES){
+if(msg.startsWith(p+" ")) return p;
 }
 
+}
+
+// ================= DATABASE =================
+
+if(!fs.existsSync("./database")) fs.mkdirSync("./database");
+
+if(!fs.existsSync("./database/users.json"))
+fs.writeFileSync("./database/users.json","{}");
+
+let users = JSON.parse(fs.readFileSync("./database/users.json"));
+
 function save(){
- fs.writeFileSync("users.json",JSON.stringify(users,null,2));
+fs.writeFileSync("./database/users.json",JSON.stringify(users,null,2));
 }
 
 function getUser(id){
 
- if(!users[id]){
+if(!users[id]){
 
-  users[id] = {
-
-   wallet:0,
-   bank:0,
-   gems:0,
-
-   xp:0,
-   level:1,
-
-   battleWins:0,
-   battleLoss:0,
-
-   inventory:[],
-
-   lastDaily:0,
-   lastWork:0
-
-  };
-
- }
-
- return users[id];
+users[id] = {
+wallet:0,
+bank:0,
+gems:0,
+xp:0,
+level:0,
+inventory:[],
+lastDaily:0,
+lastWork:0,
+lastCrime:0,
+lastRob:0
+};
 
 }
 
-function addXP(id,amount){
-
- let user = getUser(id);
-
- user.xp += amount;
-
- let need = user.level * 100;
-
- if(user.xp >= need){
-
-  user.xp = 0;
-  user.level += 1;
-
- }
-
- save();
+return users[id];
 
 }
 
-function addGems(id,amount){
+// ================= RANK =================
 
- let user = getUser(id);
+function getRank(level){
 
- user.gems += amount;
-
- save();
-
-}
-
-function addItem(id,item){
-
- let user = getUser(id);
-
- user.inventory.push(item);
-
- save();
+if(level>=41) return "👑 Mythic";
+if(level>=31) return "💎 Diamond";
+if(level>=21) return "🥇 Gold";
+if(level>=11) return "🥈 Silver";
+return "🥉 Bronze";
 
 }
 
-function removeItem(id,item){
+// ================= XP BAR =================
 
- let user = getUser(id);
+function xpBar(xp,level){
 
- let i = user.inventory.indexOf(item);
+const required = (level+1)*2500;
 
- if(i > -1){
+const percent = Math.floor((xp/required)*100);
 
-  user.inventory.splice(i,1);
+const filled = Math.floor(percent/10);
 
- }
+const bar = "█".repeat(filled)+"░".repeat(10-filled);
 
- save();
+return `${bar} ${percent}%`;
 
 }
 
-client.on("ready",()=>{
+// ================= READY =================
 
- console.log("V6 RPG BOT ONLINE");
-
+client.once("ready",()=>{
+console.log("⚡ Spark Bot V6 Online: "+client.user.tag);
 });
+
+// ================= MESSAGE =================
 
 client.on("messageCreate",async message=>{
 
- if(message.author.bot) return;
+if(message.author.bot) return;
 
- if(!message.content.startsWith(prefix)) return;
+const prefix = getPrefix(message);
 
- const args = message.content.slice(prefix.length).trim().split(/ +/);
- const cmd = args.shift().toLowerCase();
+if(!prefix) return;
 
- const user = getUser(message.author.id);
+const args = message.content.slice(prefix.length).trim().split(/ +/);
 
- // ================= BALANCE =================
+const cmd = args.shift().toLowerCase();
 
- if(cmd === "balance" || cmd === "bal"){
+const user = getUser(message.author.id);
 
-  const embed = new EmbedBuilder()
-  .setTitle(`${message.author.username} Balance`)
-  .setColor("Gold")
-  .setDescription(`
-🪙 Wallet: ${user.wallet}
-🏦 Bank: ${user.bank}
-💎 Gems: ${user.gems}
-`);
+// ================= XP SYSTEM =================
 
-  return message.reply({embeds:[embed]});
+user.xp += 1;
 
- }
+const required = (user.level+1)*2500;
 
+if(user.xp >= required && user.level < 50){
+
+user.level++;
+
+const reward = user.level*5000;
+
+user.wallet += reward;
+
+const oldRank = getRank(user.level-1);
+const newRank = getRank(user.level);
+
+const lvlEmbed = new EmbedBuilder()
+.setColor("Green")
+.setTitle("⭐ LEVEL UP")
+.setDescription(`━━━━━━━━━━━━━━━━━━━━━━
+
+${message.author.username}
+
+${user.level-1} → ${user.level}
+
+💰 Reward
++${reward} Coins
+
+━━━━━━━━━━━━━━━━━━━━━━`);
+
+message.channel.send({embeds:[lvlEmbed]});
+
+if(oldRank !== newRank){
+
+user.gems += 100;
+
+const rankEmbed = new EmbedBuilder()
+.setColor("Purple")
+.setTitle("👑 RANK UP")
+.setDescription(`━━━━━━━━━━━━━━━━━━━━━━
+
+${message.author.username}
+
+${newRank} Rank Unlocked
+
+💎 +100 Gems
+
+━━━━━━━━━━━━━━━━━━━━━━`);
+
+message.channel.send({embeds:[rankEmbed]});
+
+}
+
+save();
+
+}
+
+// ================= HELP =================
+
+if(cmd==="help"){
+
+const embed = new EmbedBuilder()
+
+.setColor("Blue")
+.setTitle("⚡ SPARK BOT COMMANDS")
+
+.setDescription(`━━━━━━━━━━━━━━━━━━━━━━
+
+💰 ECONOMY
+s bal
+s daily
+s deposit <amount>
+s withdraw <amount>
+s pay <user> <amount>
+
+🎰 CASINO
+s cf <amount/all>
+s slot <amount/all>
+
+💼 JOBS
+s work
+s crime
+s rob <user>
+
+🛒 SHOP
+s shop
+s buy <item>
+s inventory
+
+👤 PLAYER
+s profile
+s rank
+s leaderboard
+
+━━━━━━━━━━━━━━━━━━━━━━`);
+
+return message.reply({embeds:[embed]});
+
+}
+
+// ================= BAL =================
+
+if(cmd==="bal"||cmd==="balance"){
+
+const embed = new EmbedBuilder()
+
+.setColor("Gold")
+.setTitle("💰 SPARK BALANCE")
+
+.setDescription(`━━━━━━━━━━━━━━━━━━━━━━
+
+👤 ${message.author.username}
+
+💵 Wallet : ${user.wallet}
+🏦 Bank   : ${user.bank}
+💎 Gems   : ${user.gems}
+
+━━━━━━━━━━━━━━━━━━━━━━`);
+
+return message.reply({embeds:[embed]});
+
+   }
  // ================= DAILY =================
 
- if(cmd === "daily"){
+if(cmd==="daily"){
 
-  let now = Date.now();
+const now = Date.now();
 
-  if(now - user.lastDaily < 86400000){
+const cooldown = 86400000;
 
-   return message.reply("You already claimed daily");
+if(now - user.lastDaily < cooldown){
 
-  }
+const time = cooldown - (now-user.lastDaily);
 
-  let reward = Math.floor(Math.random()*300)+200;
+const hours = Math.floor(time/3600000);
 
-  user.wallet += reward;
-  user.lastDaily = now;
+return message.reply(`⏳ Daily already claimed\nCome back in ${hours}h`);
 
-  save();
+}
 
-  const embed = new EmbedBuilder()
-  .setTitle("Daily Reward")
-  .setColor("Green")
-  .setDescription(`You received 🪙 ${reward}`);
+const reward = 5000 + Math.floor(Math.random()*5000);
 
-  return message.reply({embeds:[embed]});
+user.wallet += reward;
+
+user.lastDaily = now;
+
+save();
+
+const embed = new EmbedBuilder()
+
+.setColor("Green")
+
+.setTitle("🎁 DAILY REWARD")
+
+.setDescription(`━━━━━━━━━━━━━━━━━━━━━━
+
+💰 +${reward} Coins
+
+Come back tomorrow!
+
+━━━━━━━━━━━━━━━━━━━━━━`);
+
+return message.reply({embeds:[embed]});
+
+}
+
+// ================= DEPOSIT =================
+
+if(cmd==="deposit"){
+
+let amount = args[0];
+
+if(!amount) return message.reply("Enter amount");
+
+if(amount==="all") amount = user.wallet;
+
+amount = parseInt(amount);
+
+if(isNaN(amount) || amount<=0)
+return message.reply("Invalid amount");
+
+if(user.wallet < amount)
+return message.reply("Not enough wallet coins");
+
+user.wallet -= amount;
+
+user.bank += amount;
+
+save();
+
+return message.reply(`🏦 Deposited ${amount} coins`);
+
+}
+
+// ================= WITHDRAW =================
+
+if(cmd==="withdraw"){
+
+let amount = args[0];
+
+if(!amount) return message.reply("Enter amount");
+
+if(amount==="all") amount = user.bank;
+
+amount = parseInt(amount);
+
+if(isNaN(amount) || amount<=0)
+return message.reply("Invalid amount");
+
+if(user.bank < amount)
+return message.reply("Not enough bank coins");
+
+user.bank -= amount;
+
+user.wallet += amount;
+
+save();
+
+return message.reply(`💵 Withdrawn ${amount} coins`);
+
+}
+
+// ================= COINFLIP =================
+
+if(cmd==="cf"||cmd==="coinflip"){
+
+let amount = args[0];
+
+if(!amount) return message.reply("Enter bet amount");
+
+if(amount==="all") amount = user.wallet;
+
+amount = parseInt(amount);
+
+if(isNaN(amount) || amount<=0)
+return message.reply("Invalid bet");
+
+if(amount > MAX_BET)
+return message.reply(`Max bet is ${MAX_BET}`);
+
+if(user.wallet < amount)
+return message.reply("Not enough coins");
+
+user.wallet -= amount;
+
+const win = Math.random() < 0.25;
+
+if(win){
+
+const reward = amount*2;
+
+user.wallet += reward;
+
+save();
+
+return message.reply(`🪙 Coinflip WIN\n+${reward} coins`);
+
+}else{
+
+save();
+
+return message.reply(`💀 Coinflip LOST\n-${amount} coins`);
+
+}
+
+}
+
+// ================= SLOT =================
+
+if(cmd==="slot"){
+
+let amount = args[0];
+
+if(!amount) return message.reply("Enter bet");
+
+if(amount==="all") amount = user.wallet;
+
+amount = parseInt(amount);
+
+if(isNaN(amount)||amount<=0)
+return message.reply("Invalid bet");
+
+if(amount > MAX_BET)
+return message.reply(`Max bet ${MAX_BET}`);
+
+if(user.wallet < amount)
+return message.reply("Not enough coins");
+
+user.wallet -= amount;
+
+const symbols = ["💎","🥭","🍒","🍉"];
+
+const a = symbols[Math.floor(Math.random()*symbols.length)];
+
+const b = symbols[Math.floor(Math.random()*symbols.length)];
+
+const c = symbols[Math.floor(Math.random()*symbols.length)];
+
+let multiplier = 0;
+
+if(a===b && b===c){
+
+if(a==="💎") multiplier=3;
+
+else if(a==="🥭") multiplier=2;
+
+else if(a==="🍒") multiplier=2;
+
+else if(a==="🍉") multiplier=1;
+
+}
+
+if(multiplier>0){
+
+const win = amount*multiplier;
+
+user.wallet += win;
+
+save();
+
+return message.reply(`🎰 ${a} | ${b} | ${c}\nWIN +${win}`);
+
+}else{
+
+save();
+
+return message.reply(`🎰 ${a} | ${b} | ${c}\nLOSE -${amount}`);
+
+}
+
+}
+// ================= WORK =================
+
+if(cmd==="work"){
+
+const now = Date.now();
+
+const cooldown = 3600000;
+
+if(now - user.lastWork < cooldown){
+
+const time = cooldown - (now-user.lastWork);
+
+const mins = Math.floor(time/60000);
+
+return message.reply(`⏳ You are tired\nTry again in ${mins}m`);
+
+}
+
+const reward = 1000 + Math.floor(Math.random()*2000);
+
+user.wallet += reward;
+
+user.lastWork = now;
+
+save();
+
+return message.reply(`💼 You worked and earned ${reward} coins`);
+
+}
+
+// ================= CRIME =================
+
+if(cmd==="crime"){
+
+const now = Date.now();
+
+const cooldown = 7200000;
+
+if(now - user.lastCrime < cooldown){
+
+const time = cooldown - (now-user.lastCrime);
+
+const mins = Math.floor(time/60000);
+
+return message.reply(`🚔 Lay low\nTry again in ${mins}m`);
+
+}
+
+const success = Math.random() < 0.5;
+
+if(success){
+
+const reward = 2000 + Math.floor(Math.random()*4000);
+
+user.wallet += reward;
+
+user.lastCrime = now;
+
+save();
+
+return message.reply(`🔫 Crime success\n+${reward} coins`);
+
+}else{
+
+const loss = 1000 + Math.floor(Math.random()*2000);
+
+user.wallet = Math.max(0,user.wallet-loss);
+
+user.lastCrime = now;
+
+save();
+
+return message.reply(`🚓 You got caught\n-${loss} coins`);
+
+}
+
+}
+
+// ================= ROB =================
+
+if(cmd==="rob"){
+
+const target = message.mentions.users.first();
+
+if(!target) return message.reply("Mention user to rob");
+
+if(target.id===message.author.id)
+return message.reply("You can't rob yourself");
+
+const victim = getUser(target.id);
+
+if(victim.wallet < 1000)
+return message.reply("Target too poor");
+
+const now = Date.now();
+
+const cooldown = 10800000;
+
+if(now - user.lastRob < cooldown){
+
+const time = cooldown - (now-user.lastRob);
+
+const mins = Math.floor(time/60000);
+
+return message.reply(`⏳ Rob cooldown\n${mins}m left`);
+
+}
+
+const success = Math.random() < 0.4;
+
+if(success){
+
+const steal = Math.floor(victim.wallet*0.3);
+
+victim.wallet -= steal;
+
+user.wallet += steal;
+
+save();
+
+return message.reply(`🗡 Rob success\nStole ${steal} coins`);
+
+}else{
+
+const fine = 1000;
+
+user.wallet = Math.max(0,user.wallet-fine);
+
+save();
+
+return message.reply(`🚓 Rob failed\nYou paid ${fine} coins`);
+
+}
+
+}
+
+// ================= PAY =================
+
+if(cmd==="pay"){
+
+const target = message.mentions.users.first();
+
+if(!target) return message.reply("Mention user");
+
+if(target.id===message.author.id)
+return message.reply("You can't pay yourself");
+
+const amount = parseInt(args[1]);
+
+if(!amount || amount<=0)
+return message.reply("Invalid amount");
+
+if(user.wallet < amount)
+return message.reply("Not enough coins");
+
+const receiver = getUser(target.id);
+
+user.wallet -= amount;
+
+receiver.wallet += amount;
+
+save();
+
+return message.reply(`💸 Paid ${amount} coins to ${target.username}`);
 
  }
-
- // ================= WORK =================
-
- if(cmd === "work"){
-
-  let reward = Math.floor(Math.random()*150)+50;
-
-  user.wallet += reward;
-
-  addXP(message.author.id,20);
-
-  save();
-
-  const embed = new EmbedBuilder()
-  .setTitle("Work Complete")
-  .setColor("Orange")
-  .setDescription(`You earned 🪙 ${reward}`);
-
-  return message.reply({embeds:[embed]});
-
- }
-
- // ================= STATS =================
-
- if(cmd === "stats"){
-
-  const embed = new EmbedBuilder()
-  .setTitle(`${message.author.username} Stats`)
-  .setColor("Blue")
-  .setDescription(`
-Level: ${user.level}
-XP: ${user.xp}
-
-⚔ Wins: ${user.battleWins}
-💀 Loss: ${user.battleLoss}
-
-💎 Gems: ${user.gems}
-`);
-
-  return message.reply({embeds:[embed]});
-
- }
-
- // ================= INVENTORY =================
-
- if(cmd === "inventory" || cmd === "inv"){
-
-  let items = user.inventory.length
-  ? user.inventory.join("\n")
-  : "Empty";
-
-  const embed = new EmbedBuilder()
-  .setTitle("Inventory")
-  .setColor("Purple")
-  .setDescription(items);
-
-  return message.reply({embeds:[embed]});
-
- }
-
- // ================= LOOT =================
-
- if(cmd === "loot"){
-
-  const loot = ["sword","armor","gem","potion"];
-
-  const item = loot[Math.floor(Math.random()*loot.length)];
-
-  addItem(message.author.id,item);
-
-  if(item === "gem") addGems(message.author.id,5);
-
-  const embed = new EmbedBuilder()
-  .setTitle("Loot Found")
-  .setColor("Aqua")
-  .setDescription(`You found **${item}**`);
-
-  return message.reply({embeds:[embed]});
-
- }
-
- // ================= BATTLE =================
-
- if(cmd === "battle"){
-
-  let win = Math.random() > 0.5;
-
-  if(win){
-
-   user.battleWins += 1;
-
-   let reward = Math.floor(Math.random()*200)+100;
-
-   user.wallet += reward;
-
-   addXP(message.author.id,40);
-
-   save();
-
-   return message.reply(`⚔ You won the battle and earned 🪙 ${reward}`);
-
-  }else{
-
-   user.battleLoss += 1;
-
-   save();
-
-   return message.reply("💀 You lost the battle");
-
-  }
-
- }
-
-});
 // ================= SHOP =================
 
 const shop = {
- sword:{price:500},
- armor:{price:400},
- potion:{price:200}
+
+laptop:{price:15000,name:"💻 Laptop"},
+phone:{price:8000,name:"📱 Phone"},
+car:{price:50000,name:"🚗 Car"},
+mansion:{price:200000,name:"🏠 Mansion"}
+
 };
 
-client.on("messageCreate", async message => {
+if(cmd==="shop"){
 
- if(message.author.bot) return;
- if(!message.content.startsWith(prefix)) return;
+let text="🛒 SHOP\n\n";
 
- const args = message.content.slice(prefix.length).trim().split(/ +/);
- const cmd = args.shift().toLowerCase();
+for(const item in shop){
 
- const user = getUser(message.author.id);
+text+=`${shop[item].name} — ${shop[item].price} coins\n`;
 
- // SHOP
+}
 
- if(cmd === "shop"){
+return message.reply(text);
 
-  let text = "";
+}
 
-  for(let item in shop){
+// ================= BUY =================
 
-   text += `${item} — 🪙 ${shop[item].price}\n`;
+if(cmd==="buy"){
 
-  }
+const item = args[0];
 
-  const embed = new EmbedBuilder()
-  .setTitle("RPG Shop")
-  .setColor("Gold")
-  .setDescription(text);
+if(!shop[item])
+return message.reply("Item not found");
 
-  return message.reply({embeds:[embed]});
+const price = shop[item].price;
 
- }
+if(user.wallet < price)
+return message.reply("Not enough coins");
 
- // BUY
+user.wallet -= price;
 
- if(cmd === "buy"){
+if(!user.inventory) user.inventory=[];
 
-  let item = args[0];
+user.inventory.push(item);
 
-  if(!shop[item]) return message.reply("Item not found");
+save();
 
-  let price = shop[item].price;
+return message.reply(`✅ Bought ${shop[item].name}`);
 
-  if(user.wallet < price)
-  return message.reply("Not enough coins");
+}
 
-  user.wallet -= price;
+// ================= INVENTORY =================
 
-  addItem(message.author.id,item);
+if(cmd==="inventory"||cmd==="inv"){
 
-  save();
+if(!user.inventory || user.inventory.length===0)
+return message.reply("Inventory empty");
 
-  return message.reply(`You bought **${item}**`);
+let text="🎒 INVENTORY\n\n";
 
- }
+user.inventory.forEach(i=>{
 
- // ================= QUEST =================
-
- if(cmd === "quest"){
-
-  let reward = Math.floor(Math.random()*300)+100;
-
-  user.wallet += reward;
-
-  addXP(message.author.id,50);
-
-  save();
-
-  const embed = new EmbedBuilder()
-  .setTitle("Quest Complete")
-  .setColor("Green")
-  .setDescription(`Reward: 🪙 ${reward}`);
-
-  return message.reply({embeds:[embed]});
-
- }
-
- // ================= CRAFT =================
-
- if(cmd === "craft"){
-
-  if(user.inventory.includes("sword") && user.inventory.includes("armor")){
-
-   removeItem(message.author.id,"sword");
-   removeItem(message.author.id,"armor");
-
-   addItem(message.author.id,"mega_sword");
-
-   return message.reply("You crafted **Mega Sword**");
-
-  }
-
-  return message.reply("Need sword + armor");
-
- }
-
- // ================= BALANCE LEADERBOARD =================
-
- if(cmd === "lb" || cmd === "leaderboard"){
-
-  if(args[0] === "battles"){
-
-   let arr = Object.entries(users);
-
-   arr.sort((a,b)=>b[1].battleWins - a[1].battleWins);
-
-   arr = arr.slice(0,10);
-
-   let medals=["🥇","🥈","🥉"];
-
-   let text="";
-
-   arr.forEach((u,i)=>{
-
-    let medal = medals[i] || `#${i+1}`;
-
-    text += `${medal} <@${u[0]}>
-Battle Wins: ${u[1].battleWins}
-
-`;
-
-   });
-
-   const embed = new EmbedBuilder()
-   .setTitle("⚔ Battle Leaderboard")
-   .setColor("Red")
-   .setDescription(text);
-
-   return message.reply({embeds:[embed]});
-
-  }
-
-  let arr = Object.entries(users);
-
-  arr.sort((a,b)=>{
-   return (b[1].wallet + b[1].bank) - (a[1].wallet + a[1].bank);
-  });
-
-  arr = arr.slice(0,10);
-
-  let medals=["🥇","🥈","🥉"];
-
-  let text="";
-
-  arr.forEach((u,i)=>{
-
-   let medal = medals[i] || `#${i+1}`;
-
-   text += `${medal} <@${u[0]}>
-🪙: ${u[1].wallet}
-💎: ${u[1].gems}
-
-`;
-
-  });
-
-  const embed = new EmbedBuilder()
-  .setTitle("💰 Richest Players")
-  .setColor("Gold")
-  .setDescription(text);
-
-  return message.reply({embeds:[embed]});
-
- }
+text+=`${shop[i].name}\n`;
 
 });
 
-// ================= ITEM INFO =================
+return message.reply(text);
 
-const rarity = {
- sword:"Common",
- armor:"Common",
- potion:"Common",
- mega_sword:"Legendary"
-};
+}
 
-client.on("messageCreate", async message => {
+// ================= PROFILE =================
 
- if(message.author.bot) return;
- if(!message.content.startsWith(prefix)) return;
+if(cmd==="profile"){
 
- const args = message.content.slice(prefix.length).trim().split(/ +/);
- const cmd = args.shift().toLowerCase();
+const target = message.mentions.users.first() || message.author;
 
- if(cmd === "item"){
+const data = getUser(target.id);
 
-  let name = args[0];
+const embed = new EmbedBuilder()
 
-  if(!rarity[name]) return message.reply("Item not found");
+.setColor("Blue")
 
-  const embed = new EmbedBuilder()
-  .setTitle(name)
-  .setColor("Purple")
-  .setDescription(`Rarity: ${rarity[name]}`);
+.setTitle(`${target.username} Profile`)
 
-  return message.reply({embeds:[embed]});
+.setDescription(`
 
- }
+💰 Wallet: ${data.wallet}
+
+🏦 Bank: ${data.bank}
+
+🎒 Items: ${data.inventory ? data.inventory.length : 0}
+
+`);
+
+return message.reply({embeds:[embed]});
+
+}
+
+// ================= LEADERBOARD =================
+
+if(cmd==="leaderboard"||cmd==="lb"){
+
+const top = Object.entries(db)
+
+.sort((a,b)=>(b[1].wallet+b[1].bank)-(a[1].wallet+a[1].bank))
+
+.slice(0,10);
+
+let text="🏆 LEADERBOARD\n\n";
+
+top.forEach((u,i)=>{
+
+text+=`${i+1}. <@${u[0]}> — ${u[1].wallet+u[1].bank}\n`;
 
 });
 
-// ================= LOGIN =================
+return message.reply(text);
 
-client.login(process.env.TOKEN);
+}
+
+// ================= RANK =================
+
+if(cmd==="rank"){
+
+const users = Object.entries(db)
+
+.sort((a,b)=>(b[1].wallet+b[1].bank)-(a[1].wallet+a[1].bank]);
+
+const pos = users.findIndex(u=>u[0]===message.author.id)+1;
+
+return message.reply(`🏅 Your rank: ${pos}/${users.length}`);
+
+                                      }
