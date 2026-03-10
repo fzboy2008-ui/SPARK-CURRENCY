@@ -478,6 +478,82 @@ return message.reply("✅ Admin command working");
 
 }
 
+/* ADMIN ADD COINS */
+
+if(cmd==="addcoins"){
+
+if(!isAdmin(message.author.id)){
+return message.reply("❌ You are not admin");
+}
+
+let member = message.mentions.users.first();
+let amount = parseInt(args[1]);
+
+if(!member || !amount)
+return message.reply("Usage: s addcoins @user amount");
+
+if(!economy[member.id]){
+
+economy[member.id] = {
+wallet:0,
+bank:0,
+gems:0,
+daily:0,
+xp:0,
+level:0,
+battles:0
+};
+
+}
+
+economy[member.id].wallet += amount;
+
+saveAll();
+
+return message.reply(`💰 Added ${amount} coins to ${member.username}`);
+
+}
+/* ADMIN ADD GEMS */
+
+if(cmd==="addgems"){
+
+if(!isAdmin(message.author.id)){
+return message.reply("❌ You are not admin");
+}
+
+let member = message.mentions.users.first();
+let amount = parseInt(args[1]);
+
+if(!member || !amount)
+return message.reply("Usage: s addgems @user amount");
+
+economy[member.id].gems += amount;
+
+saveAll();
+
+return message.reply(`💎 Added ${amount} gems to ${member.username}`);
+
+}
+/* ADD ADMIN */
+
+if(cmd==="addadmin"){
+
+if(!isAdmin(message.author.id)){
+return message.reply("❌ You are not admin");
+}
+
+let member = message.mentions.users.first();
+
+if(!member) return message.reply("Mention user");
+
+admins.push(member.id);
+
+saveAll();
+
+return message.reply(`👑 ${member.username} is now admin`);
+
+}
+
 /* HELP */
 
 if(cmd==="help"){
