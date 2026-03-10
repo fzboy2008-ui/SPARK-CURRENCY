@@ -554,6 +554,42 @@ return message.reply(`👑 ${member.username} is now admin`);
 
 }
 
+/* ADMIN SET MONEY */
+
+if(cmd==="setmoney"){
+
+if(!isAdmin(message.author.id)){
+return message.reply("❌ You are not admin");
+}
+
+let member = message.mentions.users.first();
+let amount = parseInt(args[1]);
+
+if(!member || isNaN(amount))
+return message.reply("Usage: s setmoney @user amount");
+
+if(!economy[member.id]){
+
+economy[member.id] = {
+wallet:0,
+bank:0,
+gems:0,
+daily:0,
+xp:0,
+level:0,
+battles:0
+};
+
+}
+
+economy[member.id].wallet = amount;
+
+saveAll();
+
+return message.reply(`💰 ${member.username} wallet set to ${amount}`);
+
+}
+
 /* HELP */
 
 if(cmd==="help"){
