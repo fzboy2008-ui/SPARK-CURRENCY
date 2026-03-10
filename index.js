@@ -1,10 +1,7 @@
 const { 
 Client,
 GatewayIntentBits,
-EmbedBuilder,
-ButtonBuilder,
-ButtonStyle,
-ActionRowBuilder
+EmbedBuilder
 } = require("discord.js");
 
 const fs = require("fs");
@@ -29,6 +26,15 @@ function save(){
 fs.writeFileSync("./economy.json",JSON.stringify(economy,null,2))
 }
 
+function formatTime(ms){
+
+let seconds = Math.floor(ms/1000)%60
+let minutes = Math.floor(ms/(1000*60))%60
+let hours = Math.floor(ms/(1000*60*60))
+
+return `${hours}h ${minutes}m ${seconds}s`
+}
+
 client.on("ready",()=>{
 console.log(`${client.user.tag} Online`)
 })
@@ -44,18 +50,30 @@ const args = message.content.slice(prefix.length).trim().split(/ +/)
 const cmd = args.shift().toLowerCase()
 
 if(!economy[message.author.id]){
-economy[message.author.id] = {cash:0,bank:0}
+economy[message.author.id] = {
+wallet:0,
+bank:0,
+gems:0,
+daily:0
+}
 }
 
 let user = economy[message.author.id]
 
-/* BALANCE */
+/* BAL */
 
 if(cmd === "bal"){
 
 const embed = new EmbedBuilder()
-.setTitle("💰 Balance")
-.setDescription(`Cash: **${user.cash}**`)
+.setColor("#2b2d31")
+.setDescription(`
+👤 ${message.author.username}
+
+💵 **Wallet :** ${user.wallet}
+🏦 **Bank   :** ${user.bank}
+💎 **Gems   :** ${user.gems}
+`)
+.setFooter({text:"SPARK BOT V1 UPDATE"})
 
 return message.reply({embeds:[embed]})
 }
@@ -64,140 +82,159 @@ return message.reply({embeds:[embed]})
 
 if(cmd === "daily"){
 
-let amount = 100000
+let cooldown = 86400000
 
-user.cash += amount
+if(Date.now() - user.daily < cooldown){
+
+let timeLeft = formatTime(cooldown - (Date.now() - user.daily))
+
+const embed = new EmbedBuilder()
+.setColor("Red")
+.setDescription(`
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+You already claimed today's reward.
+
+⏱ **Next Daily In**
+${timeLeft}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+`)
+.setFooter({text:"SPARK BOT V1 UPDATE"})
+
+return message.reply({embeds:[embed]})
+
+}
+
+let reward = 1000
+
+user.wallet += reward
+user.daily = Date.now()
+
 save()
 
-return message.reply(`💰 You received **${amount} coins**`)
-}
-
-/* SHOP */
-
-if(cmd === "shop"){
-
 const embed = new EmbedBuilder()
-.setTitle("🛒 ELEMENT SHOP")
-.setDescription("Select a category")
-
-const dragon = new ButtonBuilder()
-.setCustomId("shop_dragon")
-.setLabel("🐉 Dragon")
-.setStyle(ButtonStyle.Primary)
-
-const armour = new ButtonBuilder()
-.setCustomId("shop_armour")
-.setLabel("🛡️ Armour")
-.setStyle(ButtonStyle.Success)
-
-const weapon = new ButtonBuilder()
-.setCustomId("shop_weapon")
-.setLabel("⚔️ Weapon")
-.setStyle(ButtonStyle.Danger)
-
-const row = new ActionRowBuilder().addComponents(dragon,armour,weapon)
-
-return message.reply({embeds:[embed],components:[row]})
-}
-
-})
-
-client.on("interactionCreate", async interaction=>{
-
-if(!interaction.isButton()) return
-
-/* DRAGON SHOP */
-
-if(interaction.customId === "shop_dragon"){
-
-const embed = new EmbedBuilder()
-.setTitle("🐉 DRAGON SHOP")
+.setColor("Gold")
 .setDescription(`
-1️⃣ 🔥 Inferno Dragon
-2️⃣ 🌊 Abyss Dragon
-3️⃣ ⚡ Storm Dragon
-4️⃣ 🍃 Tempest Dragon
-5️⃣ 🪨 Titan Dragon
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-💰 Price: **8000 coins**
+💰 **Reward : ${reward} Coins**
+
+💵 **Wallet : ${user.wallet}**
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `)
+.setFooter({text:"SPARK BOT V1 UPDATE"})
 
-const row = new ActionRowBuilder().addComponents(
+return message.reply({embeds:[embed]})
 
-new ButtonBuilder().setCustomId("buy_d1").setLabel("Buy 1").setStyle(ButtonStyle.Primary),
-new ButtonBuilder().setCustomId("buy_d2").setLabel("Buy 2").setStyle(ButtonStyle.Primary),
-new ButtonBuilder().setCustomId("buy_d3").setLabel("Buy 3").setStyle(ButtonStyle.Primary),
-new ButtonBuilder().setCustomId("buy_d4").setLabel("Buy 4").setStyle(ButtonStyle.Primary),
-new ButtonBuilder().setCustomId("buy_d5").setLabel("Buy 5").setStyle(ButtonStyle.Primary)
-
-)
-
-return interaction.reply({embeds:[embed],components:[row]})
 }
 
-/* ARMOUR SHOP */
+/* DEPOSIT */
 
-if(interaction.customId === "shop_armour"){
+if(cmd === "deposit"){
+
+let amount = parseInt(args[0])
+
+if(!amount) return message.reply("Enter amount")
+
+if(user.wallet < amount) return message.reply("Not enough coins")
+
+user.wallet -= amount
+user.bank += amount
+
+save()
 
 const embed = new EmbedBuilder()
-.setTitle("🛡️ ARMOUR SHOP")
+.setColor("Green")
 .setDescription(`
-1️⃣ 🔥 Flame Armour
-2️⃣ 🌊 Ocean Guard
-3️⃣ ⚡ Thunder Plate
-4️⃣ 🍃 Wind Cloak
-5️⃣ 🪨 Earth Defender
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-💰 Price: **6000 coins**
+🏦 **Deposit Successful**
+
+💵 Wallet : ${user.wallet}
+🏦 Bank   : ${user.bank}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `)
+.setFooter({text:"SPARK BOT V1 UPDATE"})
 
-const row = new ActionRowBuilder().addComponents(
+return message.reply({embeds:[embed]})
 
-new ButtonBuilder().setCustomId("buy_a1").setLabel("Buy 1").setStyle(ButtonStyle.Success),
-new ButtonBuilder().setCustomId("buy_a2").setLabel("Buy 2").setStyle(ButtonStyle.Success),
-new ButtonBuilder().setCustomId("buy_a3").setLabel("Buy 3").setStyle(ButtonStyle.Success),
-new ButtonBuilder().setCustomId("buy_a4").setLabel("Buy 4").setStyle(ButtonStyle.Success),
-new ButtonBuilder().setCustomId("buy_a5").setLabel("Buy 5").setStyle(ButtonStyle.Success)
-
-)
-
-return interaction.reply({embeds:[embed],components:[row]})
 }
 
-/* WEAPON SHOP */
+/* WITHDRAW */
 
-if(interaction.customId === "shop_weapon"){
+if(cmd === "withdraw"){
+
+let amount = parseInt(args[0])
+
+if(!amount) return message.reply("Enter amount")
+
+if(user.bank < amount) return message.reply("Not enough bank balance")
+
+user.bank -= amount
+user.wallet += amount
+
+save()
 
 const embed = new EmbedBuilder()
-.setTitle("⚔️ WEAPON SHOP")
+.setColor("Green")
 .setDescription(`
-1️⃣ 🔥 Flame Blade
-2️⃣ 🌊 Tide Trident
-3️⃣ ⚡ Thunder Spear
-4️⃣ 🍃 Wind Katana
-5️⃣ 🪨 Earth Hammer
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-💰 Price: **5000 coins**
+💵 **Withdraw Successful**
+
+💵 Wallet : ${user.wallet}
+🏦 Bank   : ${user.bank}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `)
+.setFooter({text:"SPARK BOT V1 UPDATE"})
 
-const row = new ActionRowBuilder().addComponents(
+return message.reply({embeds:[embed]})
 
-new ButtonBuilder().setCustomId("buy_w1").setLabel("Buy 1").setStyle(ButtonStyle.Danger),
-new ButtonBuilder().setCustomId("buy_w2").setLabel("Buy 2").setStyle(ButtonStyle.Danger),
-new ButtonBuilder().setCustomId("buy_w3").setLabel("Buy 3").setStyle(ButtonStyle.Danger),
-new ButtonBuilder().setCustomId("buy_w4").setLabel("Buy 4").setStyle(ButtonStyle.Danger),
-new ButtonBuilder().setCustomId("buy_w5").setLabel("Buy 5").setStyle(ButtonStyle.Danger)
-
-)
-
-return interaction.reply({embeds:[embed],components:[row]})
 }
 
-/* BUY RESPONSE */
+/* GIVE */
 
-if(interaction.customId.startsWith("buy_")){
+if(cmd === "give"){
 
-return interaction.reply("✅ Item purchased (test)")
+let member = message.mentions.users.first()
+let amount = parseInt(args[1])
+
+if(!member) return message.reply("Mention a user")
+if(!amount) return message.reply("Enter amount")
+
+if(user.wallet < amount) return message.reply("Not enough coins")
+
+if(!economy[member.id]){
+economy[member.id] = {wallet:0,bank:0,gems:0,daily:0}
+}
+
+economy[member.id].wallet += amount
+user.wallet -= amount
+
+save()
+
+const embed = new EmbedBuilder()
+.setColor("Blue")
+.setDescription(`
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💸 **Transfer Successful**
+
+Sender  : ${message.author.username}
+Receiver: ${member.username}
+
+Amount  : ${amount} Coins
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+`)
+.setFooter({text:"SPARK BOT V1 UPDATE"})
+
+return message.reply({embeds:[embed]})
+
 }
 
 })
