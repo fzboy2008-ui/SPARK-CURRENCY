@@ -492,6 +492,8 @@ components:[row]
 
 client.on("interactionCreate", async interaction=>{
 
+await interaction.deferReply();
+
 if(!interaction.isButton()) return;
 
 /* DRAGON SHOP */
