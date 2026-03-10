@@ -466,6 +466,18 @@ saveAll();
 
 }
 
+/* TEST ADMIN */
+
+if(cmd==="admin"){
+
+if(!isAdmin(message.author.id)){
+return message.reply("❌ You are not admin");
+}
+
+return message.reply("✅ Admin command working");
+
+}
+
 /* HELP */
 
 if(cmd==="help"){
