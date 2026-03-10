@@ -17,11 +17,15 @@ GatewayIntentBits.MessageContent
 ]
 });
 
+/* PREFIX */
+
 const prefixes = ["s","S","spark","Spark","SPARK"];
+
+/* DATABASE */
 
 let economy = {};
 let inventory = {};
-let admins = [];
+let admins = {};
 
 /* LOAD DATA */
 
@@ -170,11 +174,19 @@ price:3000000
 
 };
 
+/* READY */
+
 client.on("ready",()=>{
 
-console.log("🔥 SPARK BOT V3 ONLINE");
+console.log("🔥 SPARK BOT V4 ONLINE");
 
 });
+
+/* BATTLE STORAGE */
+
+let battles = {};
+/* MESSAGE HANDLER */
+
 client.on("messageCreate", async message => {
 
 if(message.author.bot) return;
@@ -207,7 +219,8 @@ inventory[message.author.id] = {
 dragons:[],
 weapons:[],
 armours:[],
-selected:{}
+selected:{},
+level:1
 };
 
 }
@@ -363,9 +376,7 @@ user.wallet -= amount;
 saveAll();
 
 return message.reply(`💸 Sent ${amount} coins`);
-
 }
-
 /* COINFLIP */
 
 if(cmd==="cf"){
@@ -374,6 +385,8 @@ let bet = args[0];
 
 if(bet==="all") bet = Math.min(user.wallet,maxBet);
 else bet = Math.min(parseInt(bet),maxBet);
+
+if(!bet) return message.reply("Enter bet");
 
 if(user.wallet < bet)
 return message.reply("Not enough coins");
@@ -413,6 +426,8 @@ let bet = args[0];
 if(bet==="all") bet = Math.min(user.wallet,maxBet);
 else bet = Math.min(parseInt(bet),maxBet);
 
+if(!bet) return message.reply("Enter bet");
+
 if(user.wallet < bet)
 return message.reply("Not enough coins");
 
@@ -449,351 +464,46 @@ Reward : ${reward}
 
 saveAll();
 
-  }
-/* SHOP COMMAND */
-
-if(cmd==="shop"){
-
-const row = new ActionRowBuilder().addComponents(
-
-new ButtonBuilder()
-.setCustomId("shop_dragons")
-.setLabel("🐉 Dragons")
-.setStyle(ButtonStyle.Primary),
-
-new ButtonBuilder()
-.setCustomId("shop_weapons")
-.setLabel("⚔ Weapons")
-.setStyle(ButtonStyle.Primary),
-
-new ButtonBuilder()
-.setCustomId("shop_armours")
-.setLabel("🛡 Armours")
-.setStyle(ButtonStyle.Primary)
-
-);
-
-const embed = new EmbedBuilder()
-
-.setColor("Orange")
-
-.setTitle("🛒 SHOP")
-
-.setDescription("Select a category");
-
-return message.reply({
-embeds:[embed],
-components:[row]
-});
-
 }
 
-/* BUTTON HANDLER */
+/* HELP */
 
-client.on("interactionCreate", async interaction=>{
-
-await interaction.deferReply();
-
-if(!interaction.isButton()) return;
-
-/* DRAGON SHOP */
-
-if(interaction.customId==="shop_dragons"){
-
-const row = new ActionRowBuilder().addComponents(
-
-new ButtonBuilder()
-.setCustomId("buy_grog")
-.setLabel("Buy Grog")
-.setStyle(ButtonStyle.Success),
-
-new ButtonBuilder()
-.setCustomId("buy_phoenix")
-.setLabel("Buy Phoenix")
-.setStyle(ButtonStyle.Success),
-
-new ButtonBuilder()
-.setCustomId("buy_triton")
-.setLabel("Buy Triton")
-.setStyle(ButtonStyle.Success)
-
-);
-
-const row2 = new ActionRowBuilder().addComponents(
-
-new ButtonBuilder()
-.setCustomId("buy_rex")
-.setLabel("Buy Rex")
-.setStyle(ButtonStyle.Success),
-
-new ButtonBuilder()
-.setCustomId("buy_zephyr")
-.setLabel("Buy Zephyr")
-.setStyle(ButtonStyle.Success)
-
-);
+if(cmd==="help"){
 
 const embed = new EmbedBuilder()
 
-.setColor("Orange")
+.setColor("Green")
 
-.setTitle("🐉 Dragon Shop")
+.setTitle("📖 SPARK BOT COMMANDS")
 
 .setDescription(`
+💰 **ECONOMY**
+\`s bal\`
+\`s daily\`
+\`s deposit <amount>\`
+\`s withdraw <amount>\`
+\`s give @user <amount>\`
 
-🪨 Grog — 6M  
-🔥 Phoenix — 10M  
-🌊 Triton — 8M  
-⚡ Rex — 9M  
-🌪️ Zephyr — 7M
+🎰 **CASINO**
+\`s cf <amount/all>\`
+\`s slot <amount/all>\`
 
-`);
+👤 **PLAYER**
+\`s profile\`
+\`s rank\`
 
-return interaction.reply({
-embeds:[embed],
-components:[row,row2]
-});
-
-}
-
-/* WEAPON SHOP */
-
-if(interaction.customId==="shop_weapons"){
-
-const embed = new EmbedBuilder()
-
-.setTitle("⚔ Weapon Shop")
-
-.setDescription(`
-
-🔥 Flame Sword — 5M  
-⚡ Thunder Blade — 4.5M  
-🌊 Aqua Spear — 4M  
-🪨 Stone Hammer — 3.5M  
-🌪 Wind Dagger — 3M
-
-`);
-
-return interaction.reply({embeds:[embed]});
-
-}
-
-/* ARMOUR SHOP */
-
-if(interaction.customId==="shop_armours"){
-
-const embed = new EmbedBuilder()
-
-.setTitle("🛡 Armour Shop")
-
-.setDescription(`
-
-🔥 Dragon Plate — 5M  
-⚡ Thunder Guard — 4.5M  
-🌊 Aqua Shield — 4M  
-🪨 Earth Armor — 3.5M  
-🌪 Zephyr Cloak — 3M
-
-`);
-
-return interaction.reply({embeds:[embed]});
-
-}
-
-/* BUY DRAGON */
-
-if(interaction.customId.startsWith("buy_")){
-
-let id = interaction.customId.replace("buy_","");
-
-let dragon = dragons[id];
-
-let user = economy[interaction.user.id];
-let inv = inventory[interaction.user.id];
-
-if(user.wallet < dragon.price)
-return interaction.reply({content:"Not enough coins",ephemeral:true});
-
-user.wallet -= dragon.price;
-
-inv.dragons.push(id);
-
-saveAll();
-
-return interaction.reply(`🐉 Purchased ${dragon.name}`);
-
-}
-
-});
-
-/* INVENTORY */
-
-if(cmd==="inv"){
-
-const embed = new EmbedBuilder()
-
-.setTitle("🎒 Inventory")
-
-.setDescription(`
-
-🐉 Dragons
-${inv.dragons.join("\n") || "None"}
-
-⚔ Weapons
-${inv.weapons.join("\n") || "None"}
-
-🛡 Armours
-${inv.armours.join("\n") || "None"}
-
+🛒 **RPG**
+\`s shop\`
+\`s inv\`
+\`s set <type> <item>\`
+\`s upgrade\`
 `);
 
 return message.reply({embeds:[embed]});
 
 }
 
-/* SET EQUIPMENT */
-
-if(cmd==="set"){
-
-let type = args[0];
-let item = args[1];
-
-if(!type || !item)
-return message.reply("Usage: s set <type> <item>");
-
-inv.selected[type] = item;
-
-saveAll();
-
-return message.reply(`✅ ${item} selected`);
-
-}
-
-/* UPGRADE DRAGON */
-
-if(cmd==="upgrade"){
-
-if(!inv.selected.dragon)
-return message.reply("Select dragon first");
-
-if(user.gems < 100)
-return message.reply("Need 100 gems");
-
-user.gems -= 100;
-
-if(!inv.level) inv.level = 1;
-
-inv.level += 1;
-
-saveAll();
-
-return message.reply(`⬆ Dragon level upgraded to ${inv.level}`);
-
-          }
-/* BATTLE STORAGE */
-
-let battles = {};
-
-/* CHALLENGE */
-
-if(cmd==="challenge"){
-
-let target = message.mentions.users.first();
-
-if(!target) return message.reply("Mention user");
-
-battles[target.id] = message.author.id;
-
-return message.reply(`⚔ ${target} you were challenged!
-Type **s challenge accept**`);
-
-}
-
-/* ACCEPT */
-
-if(cmd==="challenge" && args[0]==="accept"){
-
-let opponent = battles[message.author.id];
-
-if(!opponent)
-return message.reply("No challenge found");
-
-let p1 = inventory[opponent];
-let p2 = inventory[message.author.id];
-
-let d1 = dragons[p1.selected.dragon];
-let d2 = dragons[p2.selected.dragon];
-
-if(!d1 || !d2)
-return message.reply("Both players must select dragon");
-
-let hp1 = d1.hp + (p1.level || 1)*5;
-let hp2 = d2.hp + (p2.level || 1)*5;
-
-let max1 = hp1;
-let max2 = hp2;
-
-function bar(hp,max){
-
-let total = 10;
-
-let filled = Math.max(0,Math.round((hp/max)*total));
-
-return "█".repeat(filled) + "░".repeat(total-filled);
-
-}
-
-const msg = await message.reply("⚔ Battle Starting...");
-
-while(hp1 > 0 && hp2 > 0){
-
-await new Promise(r=>setTimeout(r,2000));
-
-let atk1 = Math.floor(Math.random()*20)+5;
-let atk2 = Math.floor(Math.random()*20)+5;
-
-hp1 -= atk2;
-hp2 -= atk1;
-
-const embed = new EmbedBuilder()
-
-.setColor("Red")
-
-.setTitle("⚔ BATTLE")
-
-.setDescription(`
-
-👤 <@${opponent}>
-
-🐉 ${d1.name}
-❤️ ${bar(hp1,max1)}
-
-VS
-
-👤 ${message.author}
-
-🐉 ${d2.name}
-❤️ ${bar(hp2,max2)}
-
-`);
-
-await msg.edit({embeds:[embed]});
-
-}
-
-let winner = hp1 > hp2 ? opponent : message.author.id;
-
-economy[winner].gems += 25;
-
-economy[winner].battles += 1;
-
-saveAll();
-
-return msg.reply(`🏆 Winner: <@${winner}>
-+25 💎 Gems`);
-
-}
-/* RANK COMMAND */
+/* RANK */
 
 if(cmd==="rank"){
 
@@ -881,184 +591,419 @@ ${bar}
 
 return message.reply({embeds:[embed]});
 
-}
+  }
+/* SHOP */
 
-/* BALANCE LEADERBOARD */
+if(cmd==="shop"){
 
-if(cmd==="lb" || cmd==="leaderboard"){
+const row = new ActionRowBuilder().addComponents(
 
-let type = args[0];
+new ButtonBuilder()
+.setCustomId("shop_dragons")
+.setLabel("Dragons")
+.setEmoji("🐉")
+.setStyle(ButtonStyle.Primary),
 
-if(type==="balance"){
+new ButtonBuilder()
+.setCustomId("shop_weapons")
+.setLabel("Weapons")
+.setEmoji("⚔")
+.setStyle(ButtonStyle.Primary),
 
-let top = Object.entries(economy)
+new ButtonBuilder()
+.setCustomId("shop_armours")
+.setLabel("Armours")
+.setEmoji("🛡")
+.setStyle(ButtonStyle.Primary)
 
-.sort((a,b)=>(b[1].wallet+b[1].bank)-(a[1].wallet+a[1].bank))
-
-.slice(0,10);
-
-let text="";
-
-top.forEach((u,i)=>{
-
-let medal=["🥇","🥈","🥉"][i] || `${i+1}`;
-
-text+=`
-${medal} <@${u[0]}>
-🪙 ${(u[1].wallet+u[1].bank)}
-💎 ${u[1].gems}
-`;
-
-});
+);
 
 const embed = new EmbedBuilder()
 
-.setTitle("💰 Balance Leaderboard")
+.setColor("Orange")
 
-.setDescription(text);
+.setTitle("🛒 SPARK SHOP")
+
+.setDescription(`
+📦 Category : Main Shop
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+Select a category below
+
+━━━━━━━━━━━━━━━━━━━━━━
+`);
+
+return message.reply({
+embeds:[embed],
+components:[row]
+});
+
+}
+
+/* INVENTORY */
+
+if(cmd==="inv"){
+
+const embed = new EmbedBuilder()
+
+.setTitle("🎒 Inventory")
+
+.setDescription(`
+
+🐉 Dragons
+${inv.dragons.join("\n") || "None"}
+
+⚔ Weapons
+${inv.weapons.join("\n") || "None"}
+
+🛡 Armours
+${inv.armours.join("\n") || "None"}
+
+`);
 
 return message.reply({embeds:[embed]});
 
 }
 
-}
+/* SET EQUIPMENT */
 
-/* BATTLE LEADERBOARD */
-
-if(cmd==="lb" || cmd==="leaderboard"){
+if(cmd==="set"){
 
 let type = args[0];
+let item = args[1];
 
-if(type==="battles"){
+if(!type || !item)
+return message.reply("Usage: s set <type> <item>");
 
-let top = Object.entries(economy)
+inv.selected[type] = item;
 
-.sort((a,b)=>b[1].battles-a[1].battles)
+saveAll();
 
-.slice(0,10);
+return message.reply(`✅ ${item} selected`);
 
-let text="";
+}
 
-top.forEach((u,i)=>{
+/* UPGRADE DRAGON */
 
-let medal=["🥇","🥈","🥉"][i] || `${i+1}`;
+if(cmd==="upgrade"){
 
-text+=`
-${medal} <@${u[0]}>
-⚔ Battles : ${u[1].battles}
-`;
+if(!inv.selected.dragon)
+return message.reply("Select dragon first");
 
+if(user.gems < 100)
+return message.reply("Need 100 gems");
+
+user.gems -= 100;
+
+inv.level += 1;
+
+saveAll();
+
+return message.reply(`⬆ Dragon level upgraded to ${inv.level}`);
+
+}
 });
+
+/* BUTTON HANDLER */
+
+client.on("interactionCreate", async interaction=>{
+
+if(!interaction.isButton()) return;
+
+await interaction.deferReply();
+
+/* DRAGON SHOP */
+
+if(interaction.customId==="shop_dragons"){
+
+const row = new ActionRowBuilder().addComponents(
+
+new ButtonBuilder()
+.setCustomId("buy_grog")
+.setLabel("Grog")
+.setEmoji("🪨")
+.setStyle(ButtonStyle.Success),
+
+new ButtonBuilder()
+.setCustomId("buy_phoenix")
+.setLabel("Phoenix")
+.setEmoji("🔥")
+.setStyle(ButtonStyle.Success),
+
+new ButtonBuilder()
+.setCustomId("buy_triton")
+.setLabel("Triton")
+.setEmoji("🌊")
+.setStyle(ButtonStyle.Success)
+
+);
+
+const row2 = new ActionRowBuilder().addComponents(
+
+new ButtonBuilder()
+.setCustomId("buy_rex")
+.setLabel("Rex")
+.setEmoji("⚡")
+.setStyle(ButtonStyle.Success),
+
+new ButtonBuilder()
+.setCustomId("buy_zephyr")
+.setLabel("Zephyr")
+.setEmoji("🌪")
+.setStyle(ButtonStyle.Success),
+
+new ButtonBuilder()
+.setCustomId("shop_back")
+.setLabel("Back")
+.setEmoji("◀")
+.setStyle(ButtonStyle.Secondary)
+
+);
 
 const embed = new EmbedBuilder()
 
-.setTitle("⚔ Battle Leaderboard")
+.setColor("Orange")
 
-.setDescription(text);
+.setDescription(`
+📦 Category : 🐉 Dragons
 
-return message.reply({embeds:[embed]});
+━━━━━━━━━━━━━━━━━━━━━━
 
-}
+🪨 Grog — 6M  
+🔥 Phoenix — 10M  
+🌊 Triton — 8M  
+⚡ Rex — 9M  
+🌪 Zephyr — 7M  
 
-}
+━━━━━━━━━━━━━━━━━━━━━━
+`);
 
-/* ADMIN SET MONEY */
-
-if(cmd==="setmoney"){
-
-if(!isAdmin(message.author.id)) return;
-
-let member = message.mentions.users.first();
-
-let amount = parseInt(args[1]);
-
-if(!member) return;
-
-economy[member.id].wallet = amount;
-
-saveAll();
-
-return message.reply("Money updated");
-
-}
-
-/* ADMIN SET GEMS */
-
-if(cmd==="setgems"){
-
-if(!isAdmin(message.author.id)) return;
-
-let member = message.mentions.users.first();
-
-let amount = parseInt(args[1]);
-
-if(!member) return;
-
-economy[member.id].gems = amount;
-
-saveAll();
-
-return message.reply("Gems updated");
-
-}
-
-/* ADMIN ADD */
-
-if(cmd==="admin" && args[0]==="add"){
-
-if(!isAdmin(message.author.id)) return;
-
-let member = message.mentions.users.first();
-
-admins.push(member.id);
-
-saveAll();
-
-return message.reply("Admin added");
-
-}
-
-/* ADMIN REMOVE */
-
-if(cmd==="admin" && args[0]==="remove"){
-
-if(!isAdmin(message.author.id)) return;
-
-let member = message.mentions.users.first();
-
-admins = admins.filter(a=>a!==member.id);
-
-saveAll();
-
-return message.reply("Admin removed");
-
-}
-
-/* ADMIN LIST */
-
-if(cmd==="admin" && args[0]==="list"){
-
-let text="";
-
-admins.forEach(id=>{
-text += `<@${id}>\n`;
+return interaction.editReply({
+embeds:[embed],
+components:[row,row2]
 });
 
-return message.reply(text);
+}
+
+/* WEAPON SHOP */
+
+if(interaction.customId==="shop_weapons"){
+
+const row = new ActionRowBuilder().addComponents(
+
+new ButtonBuilder()
+.setCustomId("buy_flamesword")
+.setLabel("Flame Sword")
+.setEmoji("🔥")
+.setStyle(ButtonStyle.Success),
+
+new ButtonBuilder()
+.setCustomId("buy_thunderblade")
+.setLabel("Thunder Blade")
+.setEmoji("⚡")
+.setStyle(ButtonStyle.Success),
+
+new ButtonBuilder()
+.setCustomId("buy_aquaspear")
+.setLabel("Aqua Spear")
+.setEmoji("🌊")
+.setStyle(ButtonStyle.Success)
+
+);
+
+const row2 = new ActionRowBuilder().addComponents(
+
+new ButtonBuilder()
+.setCustomId("buy_stonehammer")
+.setLabel("Stone Hammer")
+.setEmoji("🪨")
+.setStyle(ButtonStyle.Success),
+
+new ButtonBuilder()
+.setCustomId("buy_winddagger")
+.setLabel("Wind Dagger")
+.setEmoji("🌪")
+.setStyle(ButtonStyle.Success),
+
+new ButtonBuilder()
+.setCustomId("shop_back")
+.setLabel("Back")
+.setEmoji("◀")
+.setStyle(ButtonStyle.Secondary)
+
+);
+
+const embed = new EmbedBuilder()
+
+.setColor("Orange")
+
+.setDescription(`
+📦 Category : ⚔ Weapons
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+🔥 Flame Sword — 5M  
+⚡ Thunder Blade — 4.5M  
+🌊 Aqua Spear — 4M  
+🪨 Stone Hammer — 3.5M  
+🌪 Wind Dagger — 3M  
+
+━━━━━━━━━━━━━━━━━━━━━━
+`);
+
+return interaction.editReply({
+embeds:[embed],
+components:[row,row2]
+});
 
 }
 
-/* RELOAD */
+/* ARMOUR SHOP */
 
-if(cmd==="reloadall"){
+if(interaction.customId==="shop_armours"){
 
-if(!isAdmin(message.author.id)) return;
+const row = new ActionRowBuilder().addComponents(
 
-economy = JSON.parse(fs.readFileSync("./economy.json"));
-inventory = JSON.parse(fs.readFileSync("./inventory.json"));
-admins = JSON.parse(fs.readFileSync("./admins.json"));
+new ButtonBuilder()
+.setCustomId("buy_dragonplate")
+.setLabel("Dragon Plate")
+.setEmoji("🔥")
+.setStyle(ButtonStyle.Success),
 
-return message.reply("♻ Data reloaded");
+new ButtonBuilder()
+.setCustomId("buy_thunderguard")
+.setLabel("Thunder Guard")
+.setEmoji("⚡")
+.setStyle(ButtonStyle.Success),
+
+new ButtonBuilder()
+.setCustomId("buy_aquashield")
+.setLabel("Aqua Shield")
+.setEmoji("🌊")
+.setStyle(ButtonStyle.Success)
+
+);
+
+const row2 = new ActionRowBuilder().addComponents(
+
+new ButtonBuilder()
+.setCustomId("buy_eartharmor")
+.setLabel("Earth Armor")
+.setEmoji("🪨")
+.setStyle(ButtonStyle.Success),
+
+new ButtonBuilder()
+.setCustomId("buy_zephyrcloak")
+.setLabel("Zephyr Cloak")
+.setEmoji("🌪")
+.setStyle(ButtonStyle.Success),
+
+new ButtonBuilder()
+.setCustomId("shop_back")
+.setLabel("Back")
+.setEmoji("◀")
+.setStyle(ButtonStyle.Secondary)
+
+);
+
+const embed = new EmbedBuilder()
+
+.setColor("Orange")
+
+.setDescription(`
+📦 Category : 🛡 Armours
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+🔥 Dragon Plate — 5M  
+⚡ Thunder Guard — 4.5M  
+🌊 Aqua Shield — 4M  
+🪨 Earth Armor — 3.5M  
+🌪 Zephyr Cloak — 3M  
+
+━━━━━━━━━━━━━━━━━━━━━━
+`);
+
+return interaction.editReply({
+embeds:[embed],
+components:[row,row2]
+});
+
+}
+
+/* BACK BUTTON */
+
+if(interaction.customId==="shop_back"){
+
+const row = new ActionRowBuilder().addComponents(
+
+new ButtonBuilder()
+.setCustomId("shop_dragons")
+.setLabel("Dragons")
+.setEmoji("🐉")
+.setStyle(ButtonStyle.Primary),
+
+new ButtonBuilder()
+.setCustomId("shop_weapons")
+.setLabel("Weapons")
+.setEmoji("⚔")
+.setStyle(ButtonStyle.Primary),
+
+new ButtonBuilder()
+.setCustomId("shop_armours")
+.setLabel("Armours")
+.setEmoji("🛡")
+.setStyle(ButtonStyle.Primary)
+
+);
+
+const embed = new EmbedBuilder()
+
+.setColor("Orange")
+
+.setTitle("🛒 SPARK SHOP")
+
+.setDescription(`
+📦 Category : Main Shop
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+Select a category below
+
+━━━━━━━━━━━━━━━━━━━━━━
+`);
+
+return interaction.editReply({
+embeds:[embed],
+components:[row]
+});
+
+}
+
+/* BUY SYSTEM */
+
+if(interaction.customId.startsWith("buy_")){
+
+let id = interaction.customId.replace("buy_","");
+
+let item = dragons[id] || weapons[id] || armours[id];
+
+let user = economy[interaction.user.id];
+let inv = inventory[interaction.user.id];
+
+if(user.wallet < item.price)
+return interaction.editReply("❌ Not enough coins");
+
+user.wallet -= item.price;
+
+if(dragons[id]) inv.dragons.push(id);
+if(weapons[id]) inv.weapons.push(id);
+if(armours[id]) inv.armours.push(id);
+
+saveAll();
+
+return interaction.editReply(`✅ Purchased ${item.name}`);
 
 }
 
