@@ -847,7 +847,7 @@ else if(user.level >= 40) rank="💎 Diamond";
 else if(user.level >= 30) rank="🥇 Gold";
 else if(user.level >= 20) rank="🥈 Silver";
 
-let progress = Math.floor((user.xp / ((user.level+1)*2500))*10;
+let progress = Math.floor((user.xp / ((user.level + 1) * 2500)) * 10);
 
 let bar = "█".repeat(progress) + "░".repeat(10-progress);
 
