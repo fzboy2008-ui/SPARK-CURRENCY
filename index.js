@@ -1,9 +1,4 @@
-const { 
-Client,
-GatewayIntentBits,
-EmbedBuilder
-} = require("discord.js");
-
+const { Client, GatewayIntentBits, EmbedBuilder } = require("discord.js");
 const fs = require("fs");
 
 const client = new Client({
@@ -15,6 +10,7 @@ GatewayIntentBits.MessageContent
 });
 
 const prefixes = ["s","S","spark","Spark","SPARK"];
+const maxBet = 100000;
 
 let economy = {};
 
@@ -27,12 +23,10 @@ fs.writeFileSync("./economy.json",JSON.stringify(economy,null,2))
 }
 
 function formatTime(ms){
-
-let seconds = Math.floor(ms/1000)%60
-let minutes = Math.floor(ms/(1000*60))%60
-let hours = Math.floor(ms/(1000*60*60))
-
-return `${hours}h ${minutes}m ${seconds}s`
+let s = Math.floor(ms/1000)%60
+let m = Math.floor(ms/(1000*60))%60
+let h = Math.floor(ms/(1000*60*60))
+return `${h}h ${m}m ${s}s`
 }
 
 client.on("ready",()=>{
@@ -137,7 +131,6 @@ if(cmd === "deposit"){
 let amount = parseInt(args[0])
 
 if(!amount) return message.reply("Enter amount")
-
 if(user.wallet < amount) return message.reply("Not enough coins")
 
 user.wallet -= amount
@@ -170,7 +163,6 @@ if(cmd === "withdraw"){
 let amount = parseInt(args[0])
 
 if(!amount) return message.reply("Enter amount")
-
 if(user.bank < amount) return message.reply("Not enough bank balance")
 
 user.bank -= amount
@@ -205,7 +197,6 @@ let amount = parseInt(args[1])
 
 if(!member) return message.reply("Mention a user")
 if(!amount) return message.reply("Enter amount")
-
 if(user.wallet < amount) return message.reply("Not enough coins")
 
 if(!economy[member.id]){
@@ -234,6 +225,101 @@ Amount  : ${amount} Coins
 .setFooter({text:"SPARK BOT V1 UPDATE"})
 
 return message.reply({embeds:[embed]})
+
+}
+
+/* COIN FLIP */
+
+if(cmd === "cf"){
+
+let bet = args[0]
+
+if(!bet) return message.reply("Enter bet amount")
+
+if(bet === "all") bet = Math.min(user.wallet,maxBet)
+else bet = Math.min(parseInt(bet),maxBet)
+
+if(user.wallet < bet) return message.reply("Not enough coins")
+
+user.wallet -= bet
+save()
+
+const msg = await message.reply("🪙 Flipping coin...")
+
+await new Promise(r=>setTimeout(r,1500))
+
+let win = Math.random() < 0.25
+
+if(win){
+
+let reward = bet*2
+user.wallet += reward
+
+await msg.edit(`
+🪙 **HEADS**
+
+🎉 You Won **${reward}**
+`)
+
+}else{
+
+await msg.edit(`
+🔘 **TAILS**
+
+❌ You Lost **${bet}**
+`)
+
+}
+
+save()
+
+}
+
+/* SLOT */
+
+if(cmd === "slot"){
+
+let bet = args[0]
+
+if(!bet) return message.reply("Enter bet")
+
+if(bet === "all") bet = Math.min(user.wallet,maxBet)
+else bet = Math.min(parseInt(bet),maxBet)
+
+if(user.wallet < bet) return message.reply("Not enough coins")
+
+user.wallet -= bet
+save()
+
+const msg = await message.reply("🎰 Spinning...")
+
+await new Promise(r=>setTimeout(r,1500))
+
+let emojis = ["💎","🍎","🥬","🅾️"]
+let result = emojis[Math.floor(Math.random()*emojis.length)]
+
+let reward = 0
+let multiplier = 0
+
+if(result==="💎"){ multiplier=3 }
+if(result==="🍎"){ multiplier=2 }
+if(result==="🥬"){ multiplier=1 }
+if(result==="🅾️"){ multiplier=0 }
+
+reward = bet*multiplier
+
+user.wallet += reward
+
+await msg.edit(`
+🎰 **SLOT MACHINE**
+
+${result} ${result} ${result}
+
+Multiplier : **${multiplier}x**
+Reward : **${reward}**
+`)
+
+save()
 
 }
 
