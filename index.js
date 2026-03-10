@@ -809,7 +809,9 @@ let bar = "█".repeat(progress) + "░".repeat(10-progress);
 const embed = new EmbedBuilder()
 
 .setColor("Gold")
-
+  
+.setThumbnail(message.author.displayAvatarURL({ dynamic: true }))
+  
 .setDescription(`
 ━━━━━━━━━━━━━━━━━━━━━━
 
