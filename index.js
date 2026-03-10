@@ -25,7 +25,7 @@ const prefixes = ["s","S","spark","Spark","SPARK"];
 
 let economy = {};
 let inventory = {};
-let admins = {};
+let admins = [];
 
 /* LOAD DATA */
 
