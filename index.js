@@ -590,6 +590,124 @@ return message.reply(`💰 ${member.username} wallet set to ${amount}`);
 
 }
 
+/* CHALLENGE */
+
+if(cmd==="challenge"){
+
+let opponent = message.mentions.users.first();
+
+if(!opponent) return message.reply("Mention user");
+
+let inv1 = inventory[message.author.id];
+let inv2 = inventory[opponent.id];
+
+let dragon1 = inv1.selected.dragon || "None";
+let dragon2 = inv2.selected.dragon || "None";
+
+let element1 = dragons[dragon1]?.element || "None";
+let element2 = dragons[dragon2]?.element || "None";
+
+let hp1 = dragons[dragon1]?.hp || 100;
+let hp2 = dragons[dragon2]?.hp || 100;
+
+battles[opponent.id] = {
+challenger: message.author.id,
+hp1: hp1,
+hp2: hp2
+};
+
+const embed = new EmbedBuilder()
+
+.setColor("Red")
+
+.setTitle("⚔ DRAGON BATTLE")
+
+.setThumbnail(message.author.displayAvatarURL({dynamic:true}))
+
+.setDescription(`
+👤 ${message.author}  🆚  ${opponent}
+
+━━━━━━━━━━━━━━━━
+
+🐉 **${dragon1}**
+Level : ${inv1.level}
+Element : ${element1}
+
+⚔ Weapon : ${inv1.selected.weapon || "None"}
+🛡 Armour : ${inv1.selected.armour || "None"}
+
+❤️ HP : ${hp1}
+
+━━━━━━━━━━━━━━━━
+
+🐉 **${dragon2}**
+Level : ${inv2.level}
+Element : ${element2}
+
+⚔ Weapon : ${inv2.selected.weapon || "None"}
+🛡 Armour : ${inv2.selected.armour || "None"}
+
+❤️ HP : ${hp2}
+
+━━━━━━━━━━━━━━━━
+
+⚔ **Attacks**
+• Slash
+• Fire Blast
+• Dragon Bite
+
+${opponent} type **s accept**
+`);
+
+return message.channel.send({embeds:[embed]});
+
+}
+
+/* ACCEPT */
+
+if(cmd==="accept"){
+
+let battle = battles[message.author.id];
+
+if(!battle)
+return message.reply("No challenge");
+
+let p1 = battle.challenger;
+let p2 = message.author.id;
+
+let dmg1 = Math.floor(Math.random()*30)+10;
+let dmg2 = Math.floor(Math.random()*30)+10;
+
+battle.hp2 -= dmg1;
+battle.hp1 -= dmg2;
+
+let winner;
+
+if(battle.hp1 <= 0) winner = p2;
+else if(battle.hp2 <= 0) winner = p1;
+
+if(winner){
+
+economy[winner].wallet += 10000;
+
+delete battles[message.author.id];
+
+return message.channel.send(`🏆 <@${winner}> won the battle and earned 10000 coins`);
+}
+
+return message.channel.send(`
+⚔ Attack Round
+
+<@${p1}> dealt **${dmg1}**
+<@${p2}> dealt **${dmg2}**
+
+HP
+<@${p1}> : ${battle.hp1}
+<@${p2}> : ${battle.hp2}
+`);
+
+}
+
 /* HELP */
 
 if(cmd==="help"){
