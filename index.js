@@ -55,11 +55,7 @@ if(cmd === "bal"){
 
 const embed = new EmbedBuilder()
 .setTitle("💰 Balance")
-.setColor("Gold")
-.setDescription(`
-Cash: **${user.cash}**
-Bank: **${user.bank}**
-`)
+.setDescription(`Cash: **${user.cash}**`)
 
 return message.reply({embeds:[embed]})
 }
@@ -126,7 +122,17 @@ const embed = new EmbedBuilder()
 💰 Price: **8000 coins**
 `)
 
-return interaction.reply({embeds:[embed]})
+const row = new ActionRowBuilder().addComponents(
+
+new ButtonBuilder().setCustomId("buy_d1").setLabel("Buy 1").setStyle(ButtonStyle.Primary),
+new ButtonBuilder().setCustomId("buy_d2").setLabel("Buy 2").setStyle(ButtonStyle.Primary),
+new ButtonBuilder().setCustomId("buy_d3").setLabel("Buy 3").setStyle(ButtonStyle.Primary),
+new ButtonBuilder().setCustomId("buy_d4").setLabel("Buy 4").setStyle(ButtonStyle.Primary),
+new ButtonBuilder().setCustomId("buy_d5").setLabel("Buy 5").setStyle(ButtonStyle.Primary)
+
+)
+
+return interaction.reply({embeds:[embed],components:[row]})
 }
 
 /* ARMOUR SHOP */
@@ -145,7 +151,17 @@ const embed = new EmbedBuilder()
 💰 Price: **6000 coins**
 `)
 
-return interaction.reply({embeds:[embed]})
+const row = new ActionRowBuilder().addComponents(
+
+new ButtonBuilder().setCustomId("buy_a1").setLabel("Buy 1").setStyle(ButtonStyle.Success),
+new ButtonBuilder().setCustomId("buy_a2").setLabel("Buy 2").setStyle(ButtonStyle.Success),
+new ButtonBuilder().setCustomId("buy_a3").setLabel("Buy 3").setStyle(ButtonStyle.Success),
+new ButtonBuilder().setCustomId("buy_a4").setLabel("Buy 4").setStyle(ButtonStyle.Success),
+new ButtonBuilder().setCustomId("buy_a5").setLabel("Buy 5").setStyle(ButtonStyle.Success)
+
+)
+
+return interaction.reply({embeds:[embed],components:[row]})
 }
 
 /* WEAPON SHOP */
@@ -164,7 +180,24 @@ const embed = new EmbedBuilder()
 💰 Price: **5000 coins**
 `)
 
-return interaction.reply({embeds:[embed]})
+const row = new ActionRowBuilder().addComponents(
+
+new ButtonBuilder().setCustomId("buy_w1").setLabel("Buy 1").setStyle(ButtonStyle.Danger),
+new ButtonBuilder().setCustomId("buy_w2").setLabel("Buy 2").setStyle(ButtonStyle.Danger),
+new ButtonBuilder().setCustomId("buy_w3").setLabel("Buy 3").setStyle(ButtonStyle.Danger),
+new ButtonBuilder().setCustomId("buy_w4").setLabel("Buy 4").setStyle(ButtonStyle.Danger),
+new ButtonBuilder().setCustomId("buy_w5").setLabel("Buy 5").setStyle(ButtonStyle.Danger)
+
+)
+
+return interaction.reply({embeds:[embed],components:[row]})
+}
+
+/* BUY RESPONSE */
+
+if(interaction.customId.startsWith("buy_")){
+
+return interaction.reply("✅ Item purchased (test)")
 }
 
 })
