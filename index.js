@@ -17,7 +17,7 @@ GatewayIntentBits.MessageContent
 ]
 });
 
-const prefix = "s";
+const prefixes = ["s","S","spark","Spark","SPARK"];
 
 let economy = {};
 
@@ -36,13 +36,15 @@ console.log(`${client.user.tag} Online`)
 client.on("messageCreate", async message=>{
 
 if(message.author.bot) return
-if(!message.content.startsWith(prefix)) return
+
+const prefix = prefixes.find(p => message.content.startsWith(p))
+if(!prefix) return
 
 const args = message.content.slice(prefix.length).trim().split(/ +/)
 const cmd = args.shift().toLowerCase()
 
 if(!economy[message.author.id]){
-economy[message.author.id] = {cash:500,bank:0}
+economy[message.author.id] = {cash:0,bank:0}
 }
 
 let user = economy[message.author.id]
@@ -59,68 +61,19 @@ Cash: **${user.cash}**
 Bank: **${user.bank}**
 `)
 
-message.reply({embeds:[embed]})
+return message.reply({embeds:[embed]})
 }
 
 /* DAILY */
 
 if(cmd === "daily"){
 
-let amount = 500
+let amount = 100000
 
 user.cash += amount
 save()
 
-message.reply(`💰 You received **${amount} coins**`)
-}
-
-/* DEPOSIT */
-
-if(cmd === "deposit"){
-
-let amount = parseInt(args[0])
-
-if(!amount) return message.reply("Enter amount")
-
-if(user.cash < amount) return message.reply("Not enough cash")
-
-user.cash -= amount
-user.bank += amount
-
-save()
-
-message.reply(`🏦 Deposited **${amount}**`)
-}
-
-/* WITHDRAW */
-
-if(cmd === "withdraw"){
-
-let amount = parseInt(args[0])
-
-if(user.bank < amount) return message.reply("Not enough bank")
-
-user.bank -= amount
-user.cash += amount
-
-save()
-
-message.reply(`💵 Withdraw **${amount}**`)
-}
-
-/* PROFILE */
-
-if(cmd === "profile"){
-
-const embed = new EmbedBuilder()
-.setTitle(`👤 ${message.author.username}`)
-.setDescription(`
-💰 Cash: ${user.cash}
-🏦 Bank: ${user.bank}
-⚔ Level: 1
-`)
-
-message.reply({embeds:[embed]})
+return message.reply(`💰 You received **${amount} coins**`)
 }
 
 /* SHOP */
@@ -128,21 +81,27 @@ message.reply({embeds:[embed]})
 if(cmd === "shop"){
 
 const embed = new EmbedBuilder()
-.setTitle("🛒 RPG Shop")
-.setDescription(`
-🗡 Sword — 500
-🛡 Shield — 400
-🏹 Bow — 300
-`)
+.setTitle("🛒 ELEMENT SHOP")
+.setDescription("Select a category")
 
-const buy = new ButtonBuilder()
-.setCustomId("buy_sword")
-.setLabel("Buy Sword")
+const dragon = new ButtonBuilder()
+.setCustomId("shop_dragon")
+.setLabel("🐉 Dragon")
 .setStyle(ButtonStyle.Primary)
 
-const row = new ActionRowBuilder().addComponents(buy)
+const armour = new ButtonBuilder()
+.setCustomId("shop_armour")
+.setLabel("🛡️ Armour")
+.setStyle(ButtonStyle.Success)
 
-message.reply({embeds:[embed],components:[row]})
+const weapon = new ButtonBuilder()
+.setCustomId("shop_weapon")
+.setLabel("⚔️ Weapon")
+.setStyle(ButtonStyle.Danger)
+
+const row = new ActionRowBuilder().addComponents(dragon,armour,weapon)
+
+return message.reply({embeds:[embed],components:[row]})
 }
 
 })
@@ -151,9 +110,61 @@ client.on("interactionCreate", async interaction=>{
 
 if(!interaction.isButton()) return
 
-if(interaction.customId === "buy_sword"){
+/* DRAGON SHOP */
 
-interaction.reply("🗡 You bought a sword")
+if(interaction.customId === "shop_dragon"){
+
+const embed = new EmbedBuilder()
+.setTitle("🐉 DRAGON SHOP")
+.setDescription(`
+1️⃣ 🔥 Inferno Dragon
+2️⃣ 🌊 Abyss Dragon
+3️⃣ ⚡ Storm Dragon
+4️⃣ 🍃 Tempest Dragon
+5️⃣ 🪨 Titan Dragon
+
+💰 Price: **8000 coins**
+`)
+
+return interaction.reply({embeds:[embed]})
+}
+
+/* ARMOUR SHOP */
+
+if(interaction.customId === "shop_armour"){
+
+const embed = new EmbedBuilder()
+.setTitle("🛡️ ARMOUR SHOP")
+.setDescription(`
+1️⃣ 🔥 Flame Armour
+2️⃣ 🌊 Ocean Guard
+3️⃣ ⚡ Thunder Plate
+4️⃣ 🍃 Wind Cloak
+5️⃣ 🪨 Earth Defender
+
+💰 Price: **6000 coins**
+`)
+
+return interaction.reply({embeds:[embed]})
+}
+
+/* WEAPON SHOP */
+
+if(interaction.customId === "shop_weapon"){
+
+const embed = new EmbedBuilder()
+.setTitle("⚔️ WEAPON SHOP")
+.setDescription(`
+1️⃣ 🔥 Flame Blade
+2️⃣ 🌊 Tide Trident
+3️⃣ ⚡ Thunder Spear
+4️⃣ 🍃 Wind Katana
+5️⃣ 🪨 Earth Hammer
+
+💰 Price: **5000 coins**
+`)
+
+return interaction.reply({embeds:[embed]})
 }
 
 })
