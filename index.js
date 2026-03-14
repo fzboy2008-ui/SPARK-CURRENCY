@@ -17,17 +17,24 @@ GatewayIntentBits.MessageContent
 ]
 });
 
-/* PREFIX */
+////////////////////////////
+//// PREFIX
+////////////////////////////
 
 const prefixes = ["s","S","spark","Spark","SPARK"];
 
-/* DATABASE */
+////////////////////////////
+//// DATABASE
+////////////////////////////
 
 let economy = {};
 let inventory = {};
 let admins = [];
+let battles = {};
 
-/* LOAD DATA */
+////////////////////////////
+//// LOAD FILES
+////////////////////////////
 
 if(fs.existsSync("./economy.json")){
 economy = JSON.parse(fs.readFileSync("./economy.json"));
@@ -41,7 +48,9 @@ if(fs.existsSync("./admins.json")){
 admins = JSON.parse(fs.readFileSync("./admins.json"));
 }
 
-/* SAVE FUNCTION */
+////////////////////////////
+//// SAVE
+////////////////////////////
 
 function saveAll(){
 
@@ -51,17 +60,23 @@ fs.writeFileSync("./admins.json",JSON.stringify(admins,null,2));
 
 }
 
-/* ADMIN CHECK */
+////////////////////////////
+//// ADMIN CHECK
+////////////////////////////
 
 function isAdmin(id){
 return admins.includes(id);
 }
 
-/* MAX BET */
+////////////////////////////
+//// MAX BET
+////////////////////////////
 
 const maxBet = 100000;
 
-/* DRAGONS */
+////////////////////////////
+//// DRAGONS
+////////////////////////////
 
 const dragons = {
 
@@ -102,7 +117,9 @@ hp:122
 
 };
 
-/* WEAPONS */
+////////////////////////////
+//// WEAPONS
+////////////////////////////
 
 const weapons = {
 
@@ -138,7 +155,9 @@ price:3000000
 
 };
 
-/* ARMOURS */
+////////////////////////////
+//// ARMOURS
+////////////////////////////
 
 const armours = {
 
@@ -174,30 +193,39 @@ price:3000000
 
 };
 
-/* READY */
+////////////////////////////
+//// READY
+////////////////////////////
 
 client.on("ready",()=>{
 
-console.log("🔥 SPARK BOT V4 ONLINE");
+console.log("🔥 SPARK V5 ONLINE");
 
 });
 
-/* BATTLE STORAGE */
-
-let battles = {};
-/* MESSAGE HANDLER */
+////////////////////////////
+//// MESSAGE HANDLER
+////////////////////////////
 
 client.on("messageCreate", async message => {
 
 if(message.author.bot) return;
 
-const prefix = prefixes.find(p => message.content.startsWith(p));
+const prefix = prefixes.find(p =>
+message.content.startsWith(p));
+
 if(!prefix) return;
 
-const args = message.content.slice(prefix.length).trim().split(/ +/);
+const args =
+message.content.slice(prefix.length)
+.trim()
+.split(/ +/);
+
 const cmd = args.shift().toLowerCase();
 
-/* CREATE USER DATA */
+////////////////////////////
+//// CREATE USER
+////////////////////////////
 
 if(!economy[message.author.id]){
 
@@ -227,27 +255,9 @@ level:1
 
 let user = economy[message.author.id];
 let inv = inventory[message.author.id];
-
-/* XP SYSTEM */
-
-user.xp += 1;
-
-const xpNeed = (user.level + 1) * 2500;
-
-if(user.xp >= xpNeed){
-
-user.xp = 0;
-user.level += 1;
-
-let reward = user.level * 5000;
-
-user.wallet += reward;
-
-message.channel.send(`⭐ ${message.author} leveled up to **${user.level}**\n💰 Reward: ${reward}`);
-
-}
-
-/* BAL */
+////////////////////////////
+//// BAL
+////////////////////////////
 
 if(cmd==="bal"){
 
@@ -259,25 +269,24 @@ const embed = new EmbedBuilder()
 👤 ${message.author.username}
 
 💵 Wallet : ${user.wallet}
-🏦 Bank   : ${user.bank}
-💎 Gems   : ${user.gems}
+🏦 Bank : ${user.bank}
+💎 Gems : ${user.gems}
 `);
 
 return message.reply({embeds:[embed]});
 
 }
 
-/* DAILY */
+////////////////////////////
+//// DAILY
+////////////////////////////
 
 if(cmd==="daily"){
 
-const cooldown = 86400000;
+let cd = 86400000;
 
-if(Date.now() - user.daily < cooldown){
-
-return message.reply("❌ You already claimed daily reward");
-
-}
+if(Date.now() - user.daily < cd)
+return message.reply("Already claimed");
 
 let reward = 1000;
 
@@ -286,45 +295,35 @@ user.daily = Date.now();
 
 saveAll();
 
-const embed = new EmbedBuilder()
-
-.setColor("Gold")
-
-.setDescription(`
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-💰 Reward : ${reward}
-
-💵 Wallet : ${user.wallet}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-`);
-
-return message.reply({embeds:[embed]});
+return message.reply(`💰 Daily ${reward}`);
 
 }
 
-/* DEPOSIT */
+////////////////////////////
+//// DEPOSIT
+////////////////////////////
 
 if(cmd==="deposit"){
 
 let amount = parseInt(args[0]);
 
-if(!amount) return message.reply("Enter amount");
+if(!amount) return;
 
 if(user.wallet < amount)
-return message.reply("Not enough coins");
+return message.reply("No money");
 
 user.wallet -= amount;
 user.bank += amount;
 
 saveAll();
 
-return message.reply(`🏦 Deposited ${amount}`);
+return message.reply(`🏦 ${amount} deposited`);
 
 }
 
-/* WITHDRAW */
+////////////////////////////
+//// WITHDRAW
+////////////////////////////
 
 if(cmd==="withdraw"){
 
@@ -333,508 +332,203 @@ let amount = parseInt(args[0]);
 if(!amount) return;
 
 if(user.bank < amount)
-return message.reply("Not enough balance");
+return message.reply("No bank money");
 
 user.bank -= amount;
 user.wallet += amount;
 
 saveAll();
 
-return message.reply(`💵 Withdraw ${amount}`);
+return message.reply(`💵 ${amount} withdraw`);
 
 }
 
-/* GIVE */
+////////////////////////////
+//// GIVE
+////////////////////////////
 
 if(cmd==="give"){
 
 let member = message.mentions.users.first();
 let amount = parseInt(args[1]);
 
-if(!member) return;
+if(!member || !amount) return;
 
 if(user.wallet < amount)
-return message.reply("Not enough coins");
+return message.reply("No money");
 
-if(!economy[member.id]){
+if(!economy[member.id]) return;
 
-economy[member.id] = {
-wallet:0,
-bank:0,
-gems:0,
-daily:0,
-xp:0,
-level:0,
-battles:0
-};
-
-}
-
-economy[member.id].wallet += amount;
 user.wallet -= amount;
-
-saveAll();
-
-return message.reply(`💸 Sent ${amount} coins`);
-}
-/* COINFLIP */
-
-if(cmd==="cf"){
-
-let bet = args[0];
-
-if(bet==="all") bet = Math.min(user.wallet,maxBet);
-else bet = Math.min(parseInt(bet),maxBet);
-
-if(!bet) return message.reply("Enter bet");
-
-if(user.wallet < bet)
-return message.reply("Not enough coins");
-
-user.wallet -= bet;
-
-const msg = await message.reply("🪙 Flipping coin...");
-
-await new Promise(r=>setTimeout(r,1500));
-
-let win = Math.random() < 0.25;
-
-if(win){
-
-let reward = bet * 2;
-
-user.wallet += reward;
-
-msg.edit(`🪙 HEADS\nYou won ${reward}`);
-
-}else{
-
-msg.edit(`🔘 TAILS\nYou lost ${bet}`);
-
-}
-
-saveAll();
-
-}
-
-/* SLOT */
-
-if(cmd==="slot"){
-
-let bet = args[0];
-
-if(bet==="all") bet = Math.min(user.wallet,maxBet);
-else bet = Math.min(parseInt(bet),maxBet);
-
-if(!bet) return message.reply("Enter bet");
-
-if(user.wallet < bet)
-return message.reply("Not enough coins");
-
-user.wallet -= bet;
-
-const msg = await message.reply("🎰 Spinning...");
-
-await new Promise(r=>setTimeout(r,1500));
-
-let items = ["💎","🍎","🥬","🅾️"];
-
-let r = items[Math.floor(Math.random()*items.length)];
-
-let multi = {
-
-"💎":3,
-"🍎":2,
-"🥬":1,
-"🅾️":0
-
-}[r];
-
-let reward = bet * multi;
-
-user.wallet += reward;
-
-msg.edit(`
-🎰 SLOT
-
-${r} ${r} ${r}
-
-Reward : ${reward}
-`);
-
-saveAll();
-
-}
-
-/* TEST ADMIN */
-
-if(cmd==="admin"){
-
-if(!isAdmin(message.author.id)){
-return message.reply("❌ You are not admin");
-}
-
-return message.reply("✅ Admin command working");
-
-}
-
-/* ADMIN ADD COINS */
-
-if(cmd==="addcoins"){
-
-if(!isAdmin(message.author.id)){
-return message.reply("❌ You are not admin");
-}
-
-let member = message.mentions.users.first();
-let amount = parseInt(args[1]);
-
-if(!member || !amount)
-return message.reply("Usage: s addcoins @user amount");
-
-if(!economy[member.id]){
-
-economy[member.id] = {
-wallet:0,
-bank:0,
-gems:0,
-daily:0,
-xp:0,
-level:0,
-battles:0
-};
-
-}
-
 economy[member.id].wallet += amount;
 
 saveAll();
 
-return message.reply(`💰 Added ${amount} coins to ${member.username}`);
-
-}
-/* ADMIN ADD GEMS */
-
-if(cmd==="addgems"){
-
-if(!isAdmin(message.author.id)){
-return message.reply("❌ You are not admin");
-}
-
-let member = message.mentions.users.first();
-let amount = parseInt(args[1]);
-
-if(!member || !amount)
-return message.reply("Usage: s addgems @user amount");
-
-economy[member.id].gems += amount;
-
-saveAll();
-
-return message.reply(`💎 Added ${amount} gems to ${member.username}`);
-
-}
-/* ADD ADMIN */
-
-if(cmd==="addadmin"){
-
-if(!isAdmin(message.author.id)){
-return message.reply("❌ You are not admin");
-}
-
-let member = message.mentions.users.first();
-
-if(!member) return message.reply("Mention user");
-
-admins.push(member.id);
-
-saveAll();
-
-return message.reply(`👑 ${member.username} is now admin`);
+return message.reply("Sent");
 
 }
 
-/* ADMIN SET MONEY */
+////////////////////////////
+//// ADMIN SETMONEY
+////////////////////////////
 
 if(cmd==="setmoney"){
 
-if(!isAdmin(message.author.id)){
-return message.reply("❌ You are not admin");
-}
+if(!isAdmin(message.author.id))
+return message.reply("Not admin");
 
-let member = message.mentions.users.first();
+let m = message.mentions.users.first();
 let amount = parseInt(args[1]);
 
-if(!member || isNaN(amount))
-return message.reply("Usage: s setmoney @user amount");
+if(!m || isNaN(amount)) return;
 
-if(!economy[member.id]){
-
-economy[member.id] = {
-wallet:0,
-bank:0,
-gems:0,
-daily:0,
-xp:0,
-level:0,
-battles:0
-};
-
-}
-
-economy[member.id].wallet = amount;
+economy[m.id].wallet = amount;
 
 saveAll();
 
-return message.reply(`💰 ${member.username} wallet set to ${amount}`);
+return message.reply("Done");
 
 }
 
-/* CHALLENGE */
+////////////////////////////
+//// ADDCOINS
+////////////////////////////
 
-if(cmd==="challenge"){
+if(cmd==="addcoins"){
 
-let opponent = message.mentions.users.first();
+if(!isAdmin(message.author.id))
+return message.reply("Not admin");
 
-if(!opponent) return message.reply("Mention user");
+let m = message.mentions.users.first();
+let a = parseInt(args[1]);
 
-let inv1 = inventory[message.author.id];
-let inv2 = inventory[opponent.id];
+if(!m || !a) return;
 
-let dragon1 = inv1.selected.dragon || "None";
-let dragon2 = inv2.selected.dragon || "None";
+economy[m.id].wallet += a;
 
-let element1 = dragons[dragon1]?.element || "None";
-let element2 = dragons[dragon2]?.element || "None";
+saveAll();
 
-let hp1 = dragons[dragon1]?.hp || 100;
-let hp2 = dragons[dragon2]?.hp || 100;
-
-battles[opponent.id] = {
-challenger: message.author.id,
-hp1: hp1,
-hp2: hp2
-};
-
-const embed = new EmbedBuilder()
-
-.setColor("Red")
-
-.setTitle("⚔ DRAGON BATTLE")
-
-.setThumbnail(message.author.displayAvatarURL({dynamic:true}))
-
-.setDescription(`
-👤 ${message.author}  🆚  ${opponent}
-
-━━━━━━━━━━━━━━━━
-
-🐉 **${dragon1}**
-Level : ${inv1.level}
-Element : ${element1}
-
-⚔ Weapon : ${inv1.selected.weapon || "None"}
-🛡 Armour : ${inv1.selected.armour || "None"}
-
-❤️ HP : ${hp1}
-
-━━━━━━━━━━━━━━━━
-
-🐉 **${dragon2}**
-Level : ${inv2.level}
-Element : ${element2}
-
-⚔ Weapon : ${inv2.selected.weapon || "None"}
-🛡 Armour : ${inv2.selected.armour || "None"}
-
-❤️ HP : ${hp2}
-
-━━━━━━━━━━━━━━━━
-
-⚔ **Attacks**
-• Slash
-• Fire Blast
-• Dragon Bite
-
-${opponent} type **s accept**
-`);
-
-return message.channel.send({embeds:[embed]});
+return message.reply("Added");
 
 }
 
-/* ACCEPT */
+////////////////////////////
+//// ADDGEMS
+////////////////////////////
 
-if(cmd==="accept"){
+if(cmd==="addgems"){
 
-let battle = battles[message.author.id];
+if(!isAdmin(message.author.id))
+return message.reply("Not admin");
 
-if(!battle)
-return message.reply("No challenge");
+let m = message.mentions.users.first();
+let a = parseInt(args[1]);
 
-let p1 = battle.challenger;
-let p2 = message.author.id;
+if(!m || !a) return;
 
-let dmg1 = Math.floor(Math.random()*30)+10;
-let dmg2 = Math.floor(Math.random()*30)+10;
+economy[m.id].gems += a;
 
-battle.hp2 -= dmg1;
-battle.hp1 -= dmg2;
+saveAll();
 
-let winner;
-
-if(battle.hp1 <= 0) winner = p2;
-else if(battle.hp2 <= 0) winner = p1;
-
-if(winner){
-
-economy[winner].wallet += 10000;
-
-delete battles[message.author.id];
-
-return message.channel.send(`🏆 <@${winner}> won the battle and earned 10000 coins`);
-}
-
-return message.channel.send(`
-⚔ Attack Round
-
-<@${p1}> dealt **${dmg1}**
-<@${p2}> dealt **${dmg2}**
-
-HP
-<@${p1}> : ${battle.hp1}
-<@${p2}> : ${battle.hp2}
-`);
+return message.reply("Gems added");
 
 }
 
-/* HELP */
-
-if(cmd==="help"){
-
-const embed = new EmbedBuilder()
-
-.setColor("Green")
-
-.setTitle("📖 SPARK BOT COMMANDS")
-
-.setDescription(`
-💰 **ECONOMY**
-\`s bal\`
-\`s daily\`
-\`s deposit <amount>\`
-\`s withdraw <amount>\`
-\`s give @user <amount>\`
-
-🎰 **CASINO**
-\`s cf <amount/all>\`
-\`s slot <amount/all>\`
-
-👤 **PLAYER**
-\`s profile\`
-\`s rank\`
-
-🛒 **RPG**
-\`s shop\`
-\`s inv\`
-\`s set <type> <item>\`
-\`s upgrade\`
-`);
-
-return message.reply({embeds:[embed]});
-
-}
-
-/* RANK */
-
-if(cmd==="rank"){
-
-let rank = "🥉 Bronze";
-
-if(user.level >= 50) rank="👑 Mythic";
-else if(user.level >= 40) rank="💎 Diamond";
-else if(user.level >= 30) rank="🥇 Gold";
-else if(user.level >= 20) rank="🥈 Silver";
-
-let progress = Math.floor((user.xp / ((user.level+1)*2500))*10);
-
-let bar = "█".repeat(progress) + "░".repeat(10-progress);
-
-const embed = new EmbedBuilder()
-
-.setColor("Gold")
-  
-.setDescription(`
-━━━━━━━━━━━━━━━━━━━━━━
-
-User : ${message.author.username}
-
-👑 Rank  : ${rank}
-⭐ Level : ${user.level}
-
-⚡ XP Progress
-${bar}
-
-━━━━━━━━━━━━━━━━━━━━━━
-
-🥉 Bronze
-🥈 Silver
-🥇 Gold
-💎 Diamond
-👑 Mythic
-
-━━━━━━━━━━━━━━━━━━━━━━
-`);
-
-return message.reply({embeds:[embed]});
-
-}
-
-/* PROFILE */
+////////////////////////////
+//// PROFILE
+////////////////////////////
 
 if(cmd==="profile"){
 
-let rank = "🥉 Bronze";
+let rank = "Bronze";
 
-if(user.level >= 50) rank="👑 Mythic";
-else if(user.level >= 40) rank="💎 Diamond";
-else if(user.level >= 30) rank="🥇 Gold";
-else if(user.level >= 20) rank="🥈 Silver";
-
-let progress = Math.floor((user.xp / ((user.level + 1) * 2500)) * 10);
-
-let bar = "█".repeat(progress) + "░".repeat(10-progress);
+if(user.level>=20) rank="Silver";
+if(user.level>=30) rank="Gold";
+if(user.level>=40) rank="Diamond";
+if(user.level>=50) rank="Mythic";
 
 const embed = new EmbedBuilder()
 
 .setColor("Blue")
-  
-.setThumbnail(message.author.displayAvatarURL({ dynamic: true }))
-  
+
+.setThumbnail(
+message.author.displayAvatarURL({dynamic:true})
+)
+
 .setDescription(`
-🏆 Rank : ${rank}
-⭐ Level : ${user.level}
 
-⚡ XP
-${bar}
+👤 ${message.author}
 
-━━━━━━━━━━━━━━
+Rank : ${rank}
+Level : ${user.level}
 
-💵 Wallet : ${user.wallet}
-🏦 Bank : ${user.bank}
-💎 Gems : ${user.gems}
+💵 ${user.wallet}
+🏦 ${user.bank}
+💎 ${user.gems}
 
-━━━━━━━━━━━━━━
+🐉 ${inv.selected.dragon || "None"}
+⚔ ${inv.selected.weapon || "None"}
+🛡 ${inv.selected.armour || "None"}
 
-🐉 Dragon : ${inv.selected.dragon || "None"}
-⚔ Weapon : ${inv.selected.weapon || "None"}
-🛡 Armour : ${inv.selected.armour || "None"}
 `);
 
 return message.reply({embeds:[embed]});
 
+}
+
+////////////////////////////
+//// RANK
+////////////////////////////
+
+if(cmd==="rank"){
+
+let need = (user.level+1)*2500;
+
+let bar =
+"█".repeat(Math.floor(user.xp/need*10)) +
+"░".repeat(10);
+
+return message.reply(`
+Level ${user.level}
+XP ${bar}
+`);
+
+}
+
+////////////////////////////
+//// LEADERBOARD
+////////////////////////////
+
+if(cmd==="top"){
+
+let sorted =
+Object.entries(economy)
+.sort((a,b)=>
+(b[1].wallet+b[1].bank)-
+(a[1].wallet+a[1].bank))
+.slice(0,10);
+
+let text="";
+
+for(let i=0;i<sorted.length;i++){
+
+text +=
+`${i+1}. <@${sorted[i][0]}> — ${sorted[i][1].wallet}\n`;
+
+}
+
+const embed = new EmbedBuilder()
+
+.setColor("Gold")
+.setTitle("Top Players")
+.setDescription(text);
+
+return message.reply({embeds:[embed]});
+
   }
-/* SHOP */
+////////////////////////////
+//// SHOP
+////////////////////////////
 
 if(cmd==="shop"){
 
@@ -863,18 +557,8 @@ new ButtonBuilder()
 const embed = new EmbedBuilder()
 
 .setColor("Orange")
-
-.setTitle("🛒 SPARK SHOP")
-
-.setDescription(`
-📦 Category : Main Shop
-
-━━━━━━━━━━━━━━━━━━━━━━
-
-Select a category below
-
-━━━━━━━━━━━━━━━━━━━━━━
-`);
+.setTitle("🛒 SHOP")
+.setDescription("Select category");
 
 return message.reply({
 embeds:[embed],
@@ -883,24 +567,26 @@ components:[row]
 
 }
 
-/* INVENTORY */
+////////////////////////////
+//// INVENTORY
+////////////////////////////
 
 if(cmd==="inv"){
 
 const embed = new EmbedBuilder()
 
-.setTitle("🎒 Inventory")
+.setTitle("Inventory")
 
 .setDescription(`
 
-🐉 Dragons
-${inv.dragons.join("\n") || "None"}
+🐉
+${inv.dragons.join("\n")||"None"}
 
-⚔ Weapons
-${inv.weapons.join("\n") || "None"}
+⚔
+${inv.weapons.join("\n")||"None"}
 
-🛡 Armours
-${inv.armours.join("\n") || "None"}
+🛡
+${inv.armours.join("\n")||"None"}
 
 `);
 
@@ -908,46 +594,48 @@ return message.reply({embeds:[embed]});
 
 }
 
-/* SET EQUIPMENT */
+////////////////////////////
+//// SET
+////////////////////////////
 
 if(cmd==="set"){
 
 let type = args[0];
 let item = args[1];
 
-if(!type || !item)
-return message.reply("Usage: s set <type> <item>");
+if(!type || !item) return;
 
 inv.selected[type] = item;
 
 saveAll();
 
-return message.reply(`✅ ${item} selected`);
+return message.reply("Selected");
 
 }
 
-/* UPGRADE DRAGON */
+////////////////////////////
+//// UPGRADE
+////////////////////////////
 
 if(cmd==="upgrade"){
 
 if(!inv.selected.dragon)
-return message.reply("Select dragon first");
+return message.reply("No dragon");
 
 if(user.gems < 100)
-return message.reply("Need 100 gems");
+return message.reply("Need gems");
 
 user.gems -= 100;
-
 inv.level += 1;
 
 saveAll();
 
-return message.reply(`⬆ Dragon level upgraded to ${inv.level}`);
+return message.reply("Upgraded");
 
-}
-});
-
-/* BUTTON HANDLER */
+  }
+////////////////////////////
+//// BUTTONS
+////////////////////////////
 
 client.on("interactionCreate", async interaction=>{
 
@@ -955,302 +643,264 @@ if(!interaction.isButton()) return;
 
 await interaction.deferReply();
 
-/* DRAGON SHOP */
+//////////////// DRAGONS
 
 if(interaction.customId==="shop_dragons"){
 
-const row = new ActionRowBuilder().addComponents(
-
-new ButtonBuilder()
-.setCustomId("buy_grog")
-.setLabel("Grog")
-.setEmoji("🪨")
-.setStyle(ButtonStyle.Success),
-
-new ButtonBuilder()
-.setCustomId("buy_phoenix")
-.setLabel("Phoenix")
-.setEmoji("🔥")
-.setStyle(ButtonStyle.Success),
-
-new ButtonBuilder()
-.setCustomId("buy_triton")
-.setLabel("Triton")
-.setEmoji("🌊")
-.setStyle(ButtonStyle.Success)
-
-);
-
-const row2 = new ActionRowBuilder().addComponents(
-
-new ButtonBuilder()
-.setCustomId("buy_rex")
-.setLabel("Rex")
-.setEmoji("⚡")
-.setStyle(ButtonStyle.Success),
-
-new ButtonBuilder()
-.setCustomId("buy_zephyr")
-.setLabel("Zephyr")
-.setEmoji("🌪")
-.setStyle(ButtonStyle.Success),
-
-new ButtonBuilder()
-.setCustomId("shop_back")
-.setLabel("Back")
-.setEmoji("◀")
-.setStyle(ButtonStyle.Secondary)
-
-);
-
 const embed = new EmbedBuilder()
 
 .setColor("Orange")
 
 .setDescription(`
-📦 Category : 🐉 Dragons
 
-━━━━━━━━━━━━━━━━━━━━━━
+🪨 Grog 6M
+🔥 Phoenix 10M
+🌊 Triton 8M
+⚡ Rex 9M
+🌪 Zephyr 7M
 
-🪨 Grog — 6M  
-🔥 Phoenix — 10M  
-🌊 Triton — 8M  
-⚡ Rex — 9M  
-🌪 Zephyr — 7M  
-
-━━━━━━━━━━━━━━━━━━━━━━
 `);
 
-return interaction.editReply({
-embeds:[embed],
-components:[row,row2]
-});
+return interaction.editReply({embeds:[embed]});
 
 }
 
-/* WEAPON SHOP */
+//////////////// WEAPONS
 
 if(interaction.customId==="shop_weapons"){
 
-const row = new ActionRowBuilder().addComponents(
-
-new ButtonBuilder()
-.setCustomId("buy_flamesword")
-.setLabel("Flame Sword")
-.setEmoji("🔥")
-.setStyle(ButtonStyle.Success),
-
-new ButtonBuilder()
-.setCustomId("buy_thunderblade")
-.setLabel("Thunder Blade")
-.setEmoji("⚡")
-.setStyle(ButtonStyle.Success),
-
-new ButtonBuilder()
-.setCustomId("buy_aquaspear")
-.setLabel("Aqua Spear")
-.setEmoji("🌊")
-.setStyle(ButtonStyle.Success)
-
-);
-
-const row2 = new ActionRowBuilder().addComponents(
-
-new ButtonBuilder()
-.setCustomId("buy_stonehammer")
-.setLabel("Stone Hammer")
-.setEmoji("🪨")
-.setStyle(ButtonStyle.Success),
-
-new ButtonBuilder()
-.setCustomId("buy_winddagger")
-.setLabel("Wind Dagger")
-.setEmoji("🌪")
-.setStyle(ButtonStyle.Success),
-
-new ButtonBuilder()
-.setCustomId("shop_back")
-.setLabel("Back")
-.setEmoji("◀")
-.setStyle(ButtonStyle.Secondary)
-
-);
-
 const embed = new EmbedBuilder()
 
 .setColor("Orange")
 
 .setDescription(`
-📦 Category : ⚔ Weapons
 
-━━━━━━━━━━━━━━━━━━━━━━
+🔥 FlameSword 5M
+⚡ ThunderBlade 4.5M
+🌊 AquaSpear 4M
+🪨 StoneHammer 3.5M
+🌪 WindDagger 3M
 
-🔥 Flame Sword — 5M  
-⚡ Thunder Blade — 4.5M  
-🌊 Aqua Spear — 4M  
-🪨 Stone Hammer — 3.5M  
-🌪 Wind Dagger — 3M  
-
-━━━━━━━━━━━━━━━━━━━━━━
 `);
 
-return interaction.editReply({
-embeds:[embed],
-components:[row,row2]
-});
+return interaction.editReply({embeds:[embed]});
 
 }
 
-/* ARMOUR SHOP */
+//////////////// ARMOURS
 
 if(interaction.customId==="shop_armours"){
 
-const row = new ActionRowBuilder().addComponents(
-
-new ButtonBuilder()
-.setCustomId("buy_dragonplate")
-.setLabel("Dragon Plate")
-.setEmoji("🔥")
-.setStyle(ButtonStyle.Success),
-
-new ButtonBuilder()
-.setCustomId("buy_thunderguard")
-.setLabel("Thunder Guard")
-.setEmoji("⚡")
-.setStyle(ButtonStyle.Success),
-
-new ButtonBuilder()
-.setCustomId("buy_aquashield")
-.setLabel("Aqua Shield")
-.setEmoji("🌊")
-.setStyle(ButtonStyle.Success)
-
-);
-
-const row2 = new ActionRowBuilder().addComponents(
-
-new ButtonBuilder()
-.setCustomId("buy_eartharmor")
-.setLabel("Earth Armor")
-.setEmoji("🪨")
-.setStyle(ButtonStyle.Success),
-
-new ButtonBuilder()
-.setCustomId("buy_zephyrcloak")
-.setLabel("Zephyr Cloak")
-.setEmoji("🌪")
-.setStyle(ButtonStyle.Success),
-
-new ButtonBuilder()
-.setCustomId("shop_back")
-.setLabel("Back")
-.setEmoji("◀")
-.setStyle(ButtonStyle.Secondary)
-
-);
-
 const embed = new EmbedBuilder()
 
 .setColor("Orange")
 
 .setDescription(`
-📦 Category : 🛡 Armours
 
-━━━━━━━━━━━━━━━━━━━━━━
+🔥 DragonPlate 5M
+⚡ ThunderGuard 4.5M
+🌊 AquaShield 4M
+🪨 EarthArmor 3.5M
+🌪 ZephyrCloak 3M
 
-🔥 Dragon Plate — 5M  
-⚡ Thunder Guard — 4.5M  
-🌊 Aqua Shield — 4M  
-🪨 Earth Armor — 3.5M  
-🌪 Zephyr Cloak — 3M  
-
-━━━━━━━━━━━━━━━━━━━━━━
 `);
 
-return interaction.editReply({
-embeds:[embed],
-components:[row,row2]
-});
+return interaction.editReply({embeds:[embed]});
 
 }
 
-/* BACK BUTTON */
+});
+////////////////////////////
+//// CHALLENGE
+////////////////////////////
 
-if(interaction.customId==="shop_back"){
+if(cmd==="challenge"){
 
-const row = new ActionRowBuilder().addComponents(
+let opponent = message.mentions.users.first();
+if(!opponent) return message.reply("Mention user");
 
-new ButtonBuilder()
-.setCustomId("shop_dragons")
-.setLabel("Dragons")
-.setEmoji("🐉")
-.setStyle(ButtonStyle.Primary),
+if(opponent.bot) return;
 
-new ButtonBuilder()
-.setCustomId("shop_weapons")
-.setLabel("Weapons")
-.setEmoji("⚔")
-.setStyle(ButtonStyle.Primary),
+battles[opponent.id] = {
+challenger: message.author.id
+};
 
-new ButtonBuilder()
-.setCustomId("shop_armours")
-.setLabel("Armours")
-.setEmoji("🛡")
-.setStyle(ButtonStyle.Primary)
-
+return message.channel.send(
+`⚔ ${opponent} challenged by ${message.author}
+Type s accept`
 );
+
+}
+
+////////////////////////////
+//// ACCEPT
+////////////////////////////
+
+if(cmd==="accept"){
+
+let data = battles[message.author.id];
+if(!data) return message.reply("No challenge");
+
+let p1 = data.challenger;
+let p2 = message.author.id;
+
+let inv1 = inventory[p1];
+let inv2 = inventory[p2];
+
+let d1 = dragons[inv1.selected.dragon] || {};
+let d2 = dragons[inv2.selected.dragon] || {};
+
+let hp1 = d1.hp || 100;
+let hp2 = d2.hp || 100;
+
+const embed = new EmbedBuilder()
+
+.setColor("Red")
+
+.setTitle("⚔ DRAGON BATTLE")
+
+.setThumbnail(
+message.guild.members.cache
+.get(p1)
+.user.displayAvatarURL({dynamic:true})
+)
+
+.addFields(
+
+{
+name:`👤 <@${p1}>`,
+value:
+`🐉 ${inv1.selected.dragon||"None"}
+Lvl ${inv1.level}
+Element ${d1.element||"None"}
+⚔ ${inv1.selected.weapon||"None"}
+🛡 ${inv1.selected.armour||"None"}
+❤️ ${hp1}`,
+inline:true
+},
+
+{
+name:`👤 <@${p2}>`,
+value:
+`🐉 ${inv2.selected.dragon||"None"}
+Lvl ${inv2.level}
+Element ${d2.element||"None"}
+⚔ ${inv2.selected.weapon||"None"}
+🛡 ${inv2.selected.armour||"None"}
+❤️ ${hp2}`,
+inline:true
+}
+
+)
+
+.setFooter({text:"Battle started"});
+
+let msg = await message.channel.send({
+embeds:[embed]
+});
+
+battles[p2] = {
+p1,
+p2,
+hp1,
+hp2,
+msg:msg.id,
+turn:p1,
+log:[]
+};
+
+  }
+////////////////////////////
+//// ATTACK
+////////////////////////////
+
+if(cmd==="attack"){
+
+let b = battles[message.author.id]
+|| Object.values(battles)
+.find(x=>x.p1===message.author.id);
+
+if(!b) return;
+
+if(b.turn !== message.author.id)
+return message.reply("Not your turn");
+
+let enemy =
+message.author.id===b.p1
+? b.p2
+: b.p1;
+
+let dmg =
+Math.floor(Math.random()*20)+5;
+
+if(enemy===b.p1)
+b.hp1 -= dmg;
+else
+b.hp2 -= dmg;
+
+b.log.push(
+`<@${message.author.id}> hit ${dmg}`
+);
+
+b.turn = enemy;
+
+let ch = message.channel;
+
+let msg =
+await ch.messages.fetch(b.msg);
 
 const embed = new EmbedBuilder()
 
 .setColor("Orange")
 
-.setTitle("🛒 SPARK SHOP")
+.setTitle("⚔ LIVE BATTLE")
 
-.setDescription(`
-📦 Category : Main Shop
+.addFields(
 
-━━━━━━━━━━━━━━━━━━━━━━
+{
+name:`<@${b.p1}>`,
+value:`❤️ ${b.hp1}`,
+inline:true
+},
 
-Select a category below
+{
+name:`<@${b.p2}>`,
+value:`❤️ ${b.hp2}`,
+inline:true
+}
 
-━━━━━━━━━━━━━━━━━━━━━━
-`);
+)
 
-return interaction.editReply({
-embeds:[embed],
-components:[row]
+.setDescription(
+b.log.slice(-5).join("\n")
+)
+
+.setFooter({
+text:`Turn: ${b.turn}`
 });
+
+await msg.edit({
+embeds:[embed]
+});
+
+if(b.hp1<=0 || b.hp2<=0){
+
+let win =
+b.hp1>b.hp2 ? b.p1 : b.p2;
+
+economy[win].wallet += 10000;
+
+delete battles[b.p2];
+
+return message.channel.send(
+`🏆 <@${win}> won`
+);
 
 }
 
-/* BUY SYSTEM */
-
-if(interaction.customId.startsWith("buy_")){
-
-let id = interaction.customId.replace("buy_","");
-
-let item = dragons[id] || weapons[id] || armours[id];
-
-let user = economy[interaction.user.id];
-let inv = inventory[interaction.user.id];
-
-if(user.wallet < item.price)
-return interaction.editReply("❌ Not enough coins");
-
-user.wallet -= item.price;
-
-if(dragons[id]) inv.dragons.push(id);
-if(weapons[id]) inv.weapons.push(id);
-if(armours[id]) inv.armours.push(id);
-
-saveAll();
-
-return interaction.editReply(`✅ Purchased ${item.name}`);
-
-}
-
-});
-
-/* LOGIN */
+  }
+////////////////////////////
+//// LOGIN
+////////////////////////////
 
 client.login(process.env.TOKEN);
